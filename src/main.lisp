@@ -2,6 +2,7 @@
 
 (defparameter *dev-productivity* 1)
 (defparameter *round-up* nil)
+(defparameter *today* nil)
 
 (defstruct activity id effort depends-on)
 
@@ -172,17 +173,25 @@
             end-state
             (create-shedule sim (search-backtrack come-from end-state :state-key #'state-key))))))))
 
+(defun today ()
+  (if (not *today*)
+    (get-universal-time)
+    (destructuring-bind (second minute hour) (list 0 0 0)
+      (destructuring-bind (year month date)
+          (mapcar #'parse-integer (split-sequence:split-sequence #\- *today*))
+        (encode-universal-time second minute hour date month year)))))
+
 (defun next-business-day (n)
   (recursively ((n n)
-                (today (get-universal-time)))
+                (curr-day (today)))
     (multiple-value-bind (sec min hr day mon yr dow dst-p tz)
-        (decode-universal-time today)
+        (decode-universal-time curr-day)
       (declare (ignore sec min hr dst-p tz))
       (if (>= dow 5)
-        (recur n (+ today (* 24 60 60)))
+        (recur n (+ curr-day (* 24 60 60)))
         (if (<  n 1)
           (format nil "~d-~2,'0d-~2,'0d" yr mon day)
-          (recur (1- n) (+ today (* 24 60 60))))))))
+          (recur (1- n) (+ curr-day (* 24 60 60))))))))
 
 (defun sort-schedule(schedule)
     (sort
@@ -205,4 +214,8 @@
 ; Scratch -----------------------------------------------------------------------------------------
 
 (defun toplevel ()
-  (pprint-schedule (schedule-activities (uiop:read-file-string #P"~/Dropbox/resource-allocation.txt"))))
+  (let ((*today* "2020-03-30"))
+    (multiple-value-bind (end-state schedule)
+        (schedule-activities (uiop:read-file-string #P"~/Dropbox/resource-allocation.txt"))
+      (declare (ignore end-state))
+      (pprint-schedule schedule))))
