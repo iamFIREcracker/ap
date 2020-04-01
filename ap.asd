@@ -14,6 +14,7 @@
   :build-pathname "ap"
   :entry-point "ap:toplevel"
 
+  :in-order-to ((test-op (test-op :ap/tests)))
   :serial t
   :components
   ((:module "vendor"
@@ -35,4 +36,9 @@
                #:ap
                #:1am
                )
+  :serial t
+  :components
+  ((:module "test"
+    :serial t
+    :components ((:file "main"))))
   :perform (test-op (o c) (uiop:symbol-call :1am '#:run)))

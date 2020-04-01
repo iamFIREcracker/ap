@@ -2,4 +2,9 @@
   (:use #:cl :pmdb :ap.quickutils :ap.utils)
   (:export
     :*version*
-    :toplevel))
+    :toplevel
+
+    :schedule-activities
+    :been-busy-for))
+
+(defparameter *ap-use* '(:use :cl :pmdb :ap.quickutils :ap.utils :ap))

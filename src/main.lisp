@@ -132,7 +132,6 @@
                                    (cons next-state cost)))))))
 
 (defun create-shedule (sim steps &aux (end-state (nth (1- (length steps)) steps)))
-  (prl end-state)
   (let* ((dev-count (length (devs end-state)))
          (dummy-step (make-state :devs (make-array dev-count :initial-element -1)
                                  :been-busy-for (make-array dev-count :initial-element 0)
@@ -169,7 +168,9 @@
               :test 'equal)
         (declare (ignore cost-so-far))
         (when end-state
-          (create-shedule sim (search-backtrack come-from end-state :state-key #'state-key)))))))
+          (values
+            end-state
+            (create-shedule sim (search-backtrack come-from end-state :state-key #'state-key))))))))
 
 (defun next-business-day (n)
   (recursively ((n n)
