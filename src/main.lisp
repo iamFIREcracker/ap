@@ -1,5 +1,12 @@
 (in-package #:ap)
 
+(defun read-from-stream (s)
+  (loop
+    :for line = (read-line s NIL :eof)
+    :until (eq line :eof)
+    :collecting line :into lines
+    :finally (return (format nil "~{~a~^~&~}" lines))))
+
 (defparameter *dev-productivity* 1)
 (defparameter *round-up* nil)
 (defparameter *today* nil)
@@ -211,11 +218,17 @@
                 (next-business-day to)
                 person-id)))
 
+(defun toplevel ()
+  (multiple-value-bind (end-state schedule)
+      (schedule-activities (read-from-stream *standard-input*))
+    (declare (ignore end-state))
+    (pprint-schedule schedule)))
+
 ; Scratch -----------------------------------------------------------------------------------------
 
-(defun toplevel ()
-  (let ((*today* "2020-03-30"))
-    (multiple-value-bind (end-state schedule)
-        (schedule-activities (uiop:read-file-string #P"~/Dropbox/resource-allocation.txt"))
-      (declare (ignore end-state))
-      (pprint-schedule schedule))))
+#+nil
+(let ((*today* "2020-03-30"))
+  (multiple-value-bind (end-state schedule)
+      (schedule-activities (uiop:read-file-string #P"~/Dropbox/resource-allocation.txt"))
+    (declare (ignore end-state))
+    (pprint-schedule schedule)))
