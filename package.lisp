@@ -5,6 +5,4 @@
     :toplevel
 
     :schedule-activities
-    :been-busy-for))
-
-(defparameter *ap-use* '(:use :cl :pmdb :ap.quickutils :ap.utils :ap))
+    :target-date))

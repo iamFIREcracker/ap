@@ -27,32 +27,30 @@
   (pileup:heap-insert (cons item priority ) hq))
 
 (defun a* (init-state &key (init-cost 0) goal-state goalp neighbors
-                      (state-key 'identity)
                       (heuristic (constantly 0)) (test 'eql)
                       &aux (cost-so-far (make-hash-table :test test))
                       (come-from (make-hash-table :test test)))
   (when goal-state
     (setf goalp (partial-1 test goal-state)))
-  (flet ((calc-priority (state &aux (cost (gethash (funcall state-key state) cost-so-far)))
-           (+ cost (funcall heuristic state))))
-    (hash-table-insert cost-so-far (funcall state-key init-state) init-cost)
+  (flet ((calc-priority (state-cost state)
+           (+ state-cost (funcall heuristic state))))
+    (hash-table-insert cost-so-far init-state init-cost)
     (values
       (loop
         :with frontier = (make-hq)
-        :initially (hq-insert frontier (cons init-state init-cost) (calc-priority init-state))
+        :initially (hq-insert frontier (cons init-state init-cost) (calc-priority init-cost init-state))
         :until (hq-empty-p frontier)
         :for (state . state-cost) = (hq-pop frontier)
         :when (funcall goalp state) :return state
-        :do (when (= state-cost (gethash (funcall state-key state) cost-so-far))
+        :do (when (= state-cost (gethash state cost-so-far))
               (loop
                 :for (next-state . cost) :in (funcall neighbors state)
                 :for next-cost = (+ state-cost cost)
-                :for key = (funcall state-key next-state)
-                :do (multiple-value-bind (existing-cost present-p) (gethash key cost-so-far)
+                :do (multiple-value-bind (existing-cost present-p) (gethash next-state cost-so-far)
                       (when (or (not present-p) (< next-cost existing-cost))
-                        (hash-table-insert cost-so-far key next-cost)
-                        (hash-table-insert come-from key state)
-                        (hq-insert frontier (cons next-state next-cost) (calc-priority next-state)))))))
+                        (hash-table-insert cost-so-far next-state next-cost)
+                        (hash-table-insert come-from next-state state)
+                        (hq-insert frontier (cons next-state next-cost) (calc-priority next-cost next-state)))))))
       cost-so-far
       come-from)))
 
@@ -121,10 +119,10 @@
                 ,@body))
         (recur ,@values))))
 
-(defun search-backtrack (come-from curr &key (state-key 'identity))
+(defun search-backtrack (come-from curr)
   (nreverse (recursively ((curr curr))
               (when curr
-                (cons curr (recur (gethash (funcall state-key curr) come-from)))))))
+                (cons curr (recur (gethash curr come-from)))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (export '(a* hash-table-insert maximization partial-1 recursively recur search-backtrack)))

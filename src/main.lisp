@@ -103,29 +103,23 @@
                                                          :dependencies (aref dependencies j)))))
       costs)))
 
-(defstruct (state (:conc-name nil)) devs been-busy-for completed)
+(defstruct (worker (:conc-name nil)) been-working-on been-busy-for)
+(defstruct (state (:conc-name nil)) workers completed)
 
-(defun claim (devs i activity)
-  (let ((w (copy-seq devs)))
-    (setf (aref w i) activity)
-    w))
+(defun change (seq i el)
+  (let ((c (copy-seq seq)))
+    (setf (aref c i) el)
+    c))
 
-(defun timetrack (devs i time)
-  (let ((w (copy-seq devs)))
-    (setf (aref w i) (+ (aref devs i) time))
-    w))
-
-(defun cost-change (curr-complete-date next-state)
-  (let ((new-complete-date (maximization (been-busy-for next-state))))
-    (if (> new-complete-date curr-complete-date)
-      (- new-complete-date curr-complete-date)
-      0)))
+(defun target-date (state)
+  (maximization (workers state) :key #'been-busy-for))
 
 (defun neighbors (costs activity-count state)
-  (let ((complete-date (maximization (been-busy-for state))))
-    (with-slots (devs been-busy-for completed) state
+  (let ((target-date (target-date state)))
+    (with-slots (workers completed) state
       (loop
-        :for i :below (length devs)
+        :for i :below (length workers)
+        :for w :across workers
         :appending (loop
                      :for j :below activity-count
                      :for cost = (aref costs i j)
@@ -133,52 +127,69 @@
                              cost
                              (= (logand (ash 1 j) completed) 0)
                              (= (logandc2 (dependencies cost) completed) 0))
-                     :collecting (let* ((next-state (make-state :devs (claim devs i j)
-                                                                :been-busy-for (timetrack been-busy-for i (days cost))
+                     :collecting (let* ((next-worker (make-worker :been-working-on (logior (been-working-on w) (ash 1 j))
+                                                                  :been-busy-for (+ (days cost) (been-busy-for w))))
+                                        (workers (change workers i next-worker))
+                                        (next-state (make-state :workers workers
                                                                 :completed (logior completed (ash 1 j))))
-                                        (cost (cost-change complete-date next-state)))
-                                   (cons next-state cost)))))))
+                                        (next-target-date (target-date next-state)))
+                                   (cons
+                                     next-state
+                                     (max 0 (- next-target-date target-date)))))))))
+
+(defun heuristic (activities state)
+  (loop
+    :for j :below (length activities)
+    :for a :across activities
+    :when (= (logand (ash 1 j) (completed state)) 0)
+    :summing (activity-effort a)))
+
+(defun dummy-initial-state (worker-count)
+  (make-state :workers (make-array worker-count
+                                   :initial-element (make-worker :been-working-on 0
+                                                                 :been-busy-for 0))))
 
 (defun create-shedule (sim steps &aux (end-state (nth (1- (length steps)) steps)))
-  (let* ((dev-count (length (devs end-state)))
-         (dummy-step (make-state :devs (make-array dev-count :initial-element -1)
-                                 :been-busy-for (make-array dev-count :initial-element 0)
-                                 :completed 0)))
+  (let* ((worker-count (length (workers end-state))))
     (loop
-      :for (s1 s2) :on (cons dummy-step steps)
+      :for (s1 s2) :on (cons (dummy-initial-state worker-count) steps)
       :while s2
       :appending (loop
-                   :for i :below dev-count
-                   :for a1 :across (devs s1)
-                   :for a2 :across (devs s2)
-                   :unless (eq a1 a2)
-                   :collecting (list
-                                 (activity-id (aref (simulation-activities sim) a2))
-                                 (aref (been-busy-for s1) i)
-                                 (aref (been-busy-for s2) i)
-                                 (person-id (aref (simulation-people sim) i)))))))
+                   :for i :below worker-count
+                   :for w1 :across (workers s1)
+                   :for w2 :across (workers s2)
+                   :for changed = (- (been-working-on w2) (been-working-on w1))
+                   :unless (zerop changed)
+                   :collecting (let ((completed (truncate (log changed 2))))
+                                 (list
+                                   (activity-id (aref (simulation-activities sim) completed))
+                                   (been-busy-for w1)
+                                   (been-busy-for w2)
+                                   (person-id (aref (simulation-people sim) i))))))))
 
 (defun schedule-activities (sim-string)
   (let* ((sim (parse-simulation sim-string))
+         (workers (coerce (loop
+                            :for been-working-on :across (simulation-already-working-on sim)
+                            :for been-busy-for :across (simulation-already-been-busy-for sim)
+                            :collect (make-worker :been-working-on (ash 1 been-working-on)
+                                                  :been-busy-for been-busy-for))
+                          'vector))
          (activity-count (length (simulation-activities sim)))
          (all-activities (1- (ash 1 activity-count)))
          (costs (precompute-costs sim)))
-    (flet ((state-key (s)
-             (mkstr (been-busy-for s) (completed s))))
-      (multiple-value-bind (end-state cost-so-far come-from)
-          (a* (make-state :devs (simulation-already-working-on sim)
-                          :been-busy-for (simulation-already-been-busy-for sim)
-                          :completed (simulation-already-completed sim))
-              :goalp (lambda (state) (= (completed state) all-activities))
-              :neighbors (partial-1 #'neighbors costs activity-count)
-              :state-key #'state-key
-              ; :heuristic (partial-1 #'heuristic all-activities)
-              :test 'equal)
-        (declare (ignore cost-so-far))
-        (when end-state
-          (values
-            end-state
-            (create-shedule sim (search-backtrack come-from end-state :state-key #'state-key))))))))
+    (multiple-value-bind (end-state cost-so-far come-from)
+        (a* (make-state :workers workers
+                        :completed (simulation-already-completed sim))
+            :goalp (lambda (state) (= (completed state) all-activities))
+            :neighbors (partial-1 #'neighbors costs activity-count)
+            ; :heuristic (partial-1 #'heuristic (simulation-activities sim))
+            :test 'equalp)
+      (declare (ignore cost-so-far))
+      (when end-state
+        (values
+          end-state
+          (create-shedule sim (search-backtrack come-from end-state)))))))
 
 (defun today ()
   (if (not *today*)
@@ -229,6 +240,6 @@
 #+nil
 (let ((*today* "2020-03-30"))
   (multiple-value-bind (end-state schedule)
-      (schedule-activities (uiop:read-file-string #P"~/Dropbox/resource-allocation.txt"))
+      (schedule-activities (uiop:read-file-string #P"test/known-scenario.txt"))
     (declare (ignore end-state))
     (pprint-schedule schedule)))
