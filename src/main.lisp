@@ -191,6 +191,11 @@
           end-state
           (create-shedule sim (search-backtrack come-from end-state)))))))
 
+(defun completion-day (sim-string)
+  (multiple-value-bind (end-state)
+      (schedule-activities sim-string)
+    (target-date end-state)))
+
 (defun today ()
   (if (not *today*)
     (get-universal-time)

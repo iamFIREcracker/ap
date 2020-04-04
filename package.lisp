@@ -4,5 +4,5 @@
     :*version*
     :toplevel
 
-    :schedule-activities
-    :target-date))
+    ; API
+    :completion-day))
