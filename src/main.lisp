@@ -1,10 +1,70 @@
 (in-package #:ap)
 
-(defparameter *ignore-preallocations* nil)
-(defparameter *enable-heuristic* nil)
-(defparameter *dev-productivity* 1)
-(defparameter *round-up* nil)
-(defparameter *today* nil)
+(defvar *version* nil "Application version")
+(defvar *ignore-preallocations* nil "Ignore any person-activity pre-allocation")
+(defvar *enable-heuristic* nil "Boolean to tell the planner to use or not heuristic")
+(defvar *dev-productivity* 1)
+(defvar *round-up* nil)
+(defvar *today* nil)
+
+(opts:define-opts
+  (:name :help
+         :description "print the help text and exit"
+         :short #\h
+         :long "help")
+  (:name :version
+         :description "print the version and exit"
+         :short #\v
+         :long "version"))
+
+(define-condition exit (error)
+  ((code
+     :initarg :code
+     :initform 0
+     :reader exit-code))
+  (:report (lambda (condition stream)
+             (format stream "Trying to exit with code: ~S"
+                     (exit-code condition)))))
+
+(defun parse-opts (argv)
+  (multiple-value-bind (options)
+      (handler-case
+          (handler-bind ((opts:missing-required-option (lambda (condition)
+                                                         (if (or (member "-h" argv :test #'equal)
+                                                                 (member "--help" argv :test #'equal)
+                                                                 (member "-v" argv :test #'equal)
+                                                                 (member "--version" argv :test #'equal))
+                                                           (invoke-restart 'opts:skip-option)
+                                                           (progn
+                                                             (format t "~a~%" condition)
+                                                             (error 'exit :code 1))))))
+            (opts:get-opts argv))
+        (opts:unknown-option (condition)
+          (format t "~a~%" condition)
+          (error 'exit :code 1))
+        (opts:missing-arg (condition)
+          (format t "~a~%" condition)
+          (error 'exit :code 1)))
+    (if (getf options :help)
+      (progn
+        (opts:describe
+          :prefix "Some description"
+          :args "[keywords]")
+        (error 'exit)))
+    (if (getf options :version)
+      (progn
+        (format T "~a~%" *version*)
+        (error 'exit)))))
+    ; optional ones
+    ; (if (getf options :image)
+    ;   (setf *image* (getf options :image)))
+    ; (if (getf options :atom-link-self)
+    ;   (setf *atom-link-self* (getf options :atom-link-self)))
+    ; (if (getf options :disable-pre-tag-wrapping)
+    ;   (setf *pre-wrap* NIL))
+    ; (if (getf options :max-items)
+    ;   (setf *max-items* (getf options :max-items)))))
+
 
 (defun read-from-stream (s)
   (loop
@@ -276,6 +336,9 @@
                 person-id)))
 
 (defun toplevel ()
+  (handler-case (parse-opts (opts:argv))
+    (exit (condition)
+      (opts:exit (exit-code condition))))
   (multiple-value-bind (end-state schedule)
       (schedule-activities (read-from-stream *standard-input*))
     (declare (ignore end-state))
