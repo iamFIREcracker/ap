@@ -27,11 +27,13 @@
   (pileup:heap-insert (cons item priority ) hq))
 
 (defun a* (init-state &key (init-cost 0) goal-state goalp neighbors
-                      (heuristic (constantly 0)) (test 'eql)
+                      heuristic (test 'eql)
                       &aux (cost-so-far (make-hash-table :test test))
                       (come-from (make-hash-table :test test)))
   (when goal-state
     (setf goalp (partial-1 test goal-state)))
+  (unless heuristic
+    (setf heuristic (constantly 0)))
   (flet ((calc-priority (state-cost state)
            (+ state-cost (funcall heuristic state))))
     (hash-table-insert cost-so-far init-state init-cost)
