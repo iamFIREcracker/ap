@@ -1,15 +1,17 @@
 (in-package #:ap)
 
+(defparameter *ignore-preallocations* nil)
+(defparameter *enable-heuristic* nil)
+(defparameter *dev-productivity* 1)
+(defparameter *round-up* nil)
+(defparameter *today* nil)
+
 (defun read-from-stream (s)
   (loop
     :for line = (read-line s NIL :eof)
     :until (eq line :eof)
     :collecting line :into lines
     :finally (return (format nil "~{~a~^~&~}" lines))))
-
-(defparameter *dev-productivity* 1)
-(defparameter *round-up* nil)
-(defparameter *today* nil)
 
 (defstruct activity id effort depends-on)
 
@@ -68,16 +70,17 @@
               :for j = (gethash dep-id activity-id-map)
               :do (setf (aref dependencies i)
                         (logior (aref dependencies i) (ash 1 j)))))
-      (loop
-        :for i :below (length people)
-        :for person :in people
-        :do (loop
-              :for act-id :in (person-working-on person)
-              :for j = (gethash act-id activity-id-map)
-              :do (setf (aref already-working-on i) j
-                        (aref already-been-busy-for i) (calculate-cost person
-                                                                       (nth j activities))
-                        already-completed (logior already-completed (ash 1 j)))))
+      (unless *ignore-preallocations*
+        (loop
+          :for i :below (length people)
+          :for person :in people
+          :do (loop
+                :for act-id :in (person-working-on person)
+                :for j = (gethash act-id activity-id-map)
+                :do (setf (aref already-working-on i) j
+                          (aref already-been-busy-for i) (calculate-cost person
+                                                                         (nth j activities))
+                          already-completed (logior already-completed (ash 1 j))))))
       (make-simulation :activities (coerce activities 'vector)
                        :dependencies dependencies
                        :people (coerce people 'vector)
@@ -137,12 +140,43 @@
                                      next-state
                                      (max 0 (- next-target-date target-date)))))))))
 
-(defun heuristic (activities state)
+(defun activities-remaining (activities state)
   (loop
     :for j :below (length activities)
     :for a :across activities
     :when (= (logand (ash 1 j) (completed state)) 0)
-    :summing (activity-effort a)))
+    :collect a))
+
+(defun effort-remaining (activities state)
+  (reduce #'+ (activities-remaining activities state)
+          :key #'activity-effort))
+
+; (defun heuristic (people activities worker-count state)
+;   (let* ((target-date (target-date state))
+;          (effort-remaining (effort-remaining activities state)))
+;     (prl target-date effort-remaining (map 'vector #'been-busy-for (workers state)))
+;     (loop
+;       :while (plusp effort-remaining)
+;       :for p :across people
+;       :for w :across (workers state)
+;       :for remaining = (- target-date (been-busy-for w))
+;       :for effort = (* remaining (person-allocation p) *dev-productivity*)
+;       :do (setf effort (min effort effort-remaining)
+;                 effort-remaining (- effort-remaining effort)))
+;     (pr effort-remaining)
+;     (pr (/ effort-remaining worker-count))
+;     (break)
+;     (/ effort-remaining worker-count)))
+
+; (defun heuristic (people activities worker-count state)
+;   (declare (ignore people worker-count))
+;   (let* ((effort-remaining (effort-remaining activities state)))
+;     effort-remaining))
+
+(defun heuristic (people activities worker-count state)
+  (declare (ignore people))
+  (let* ((effort-remaining (effort-remaining activities state)))
+    (/ effort-remaining worker-count)))
 
 (defun dummy-initial-state (worker-count)
   (make-state :workers (make-array worker-count
@@ -175,15 +209,20 @@
                             :collect (make-worker :been-working-on (ash 1 been-working-on)
                                                   :been-busy-for been-busy-for))
                           'vector))
+         (worker-count (length workers))
          (activity-count (length (simulation-activities sim)))
          (all-activities (1- (ash 1 activity-count)))
-         (costs (precompute-costs sim)))
+         (costs (precompute-costs sim))
+         (init-state (make-state :workers workers
+                                 :completed (simulation-already-completed sim))))
     (multiple-value-bind (end-state cost-so-far come-from)
-        (a* (make-state :workers workers
-                        :completed (simulation-already-completed sim))
+        (a* init-state
+            :init-cost (target-date init-state)
             :goalp (lambda (state) (= (completed state) all-activities))
             :neighbors (partial-1 #'neighbors costs activity-count)
-            ; :heuristic (partial-1 #'heuristic (simulation-activities sim))
+            :heuristic (and *enable-heuristic* (partial-1 #'heuristic (simulation-people sim)
+                                                          (simulation-activities sim)
+                                                          worker-count))
             :test 'equalp)
       (declare (ignore cost-so-far))
       (when end-state
@@ -191,10 +230,12 @@
           end-state
           (create-shedule sim (search-backtrack come-from end-state)))))))
 
-(defun completion-day (sim-string)
-  (multiple-value-bind (end-state)
-      (schedule-activities sim-string)
-    (target-date end-state)))
+(defun completion-day (sim-string &key ignore-preallocations disable-heuristic)
+  (let ((*ignore-preallocations* ignore-preallocations)
+        (*enable-heuristic* (not disable-heuristic)))
+    (multiple-value-bind (end-state)
+        (schedule-activities sim-string)
+      (target-date end-state))))
 
 (defun today ()
   (if (not *today*)
