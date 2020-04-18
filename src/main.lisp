@@ -4,7 +4,6 @@
 (defvar *ignore-preallocations* nil "Ignore any person-activity pre-allocation")
 (defvar *enable-heuristic* nil "Boolean to tell the planner to use or not heuristic")
 (defvar *person-productivity* 1 "Person productivity")
-(defvar *round-up* nil)
 (defvar *today* nil "First day of the simulation")
 
 ; Date utils --------------------------------------------------------------------------------------
@@ -77,8 +76,7 @@
 (defun calculate-cost (person activity)
   (with-slots (allocation) person
     (with-slots (effort) activity
-      (let ((cost (/ effort allocation *person-productivity*)))
-        (if *round-up* (ceiling cost) cost)))))
+      (/ effort allocation *person-productivity*))))
 
 (defun parse-simulation (string)
   (let ((activity-id-map (make-hash-table :test 'equal))
