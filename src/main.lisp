@@ -3,7 +3,7 @@
 (defvar *version* nil "Application version")
 (defvar *ignore-preallocations* nil "Ignore any person-activity pre-allocation")
 (defvar *enable-heuristic* nil "Boolean to tell the planner to use or not heuristic")
-(defvar *dev-productivity* 1)
+(defvar *person-productivity* 1 "Person productivity")
 (defvar *round-up* nil)
 (defvar *today* nil "First day of the simulation")
 
@@ -34,74 +34,6 @@
           (format nil "~d-~2,'0d-~2,'0d" yr mon day)
           (recur (1- n) (+ curr-day (* 24 60 60))))))))
 
-; Options -----------------------------------------------------------------------------------------
-
-(opts:define-opts
-  (:name :help
-         :description "print the help text and exit"
-         :short #\h
-         :long "help")
-  (:name :version
-         :description "print the version and exit"
-         :short #\v
-         :long "version")
-  (:name :ignore-preallocations
-         :description "ignore any pre-allocated activity"
-         :long "ignore-preallocations")
-  (:name :enable-heuristic
-         :description "enable heuristic (warning: ap might converge to a sub-optimal solution)"
-         :long "enable-heuristic")
-  (:name :today
-         :description "use DATE (YYYY-MM-DD) as first day of the simulation"
-         :long "today"
-         :arg-parser #'parse-date
-         :meta-var "DATE"))
-
-(define-condition exit (error)
-  ((code
-     :initarg :code
-     :initform 0
-     :reader exit-code))
-  (:report (lambda (condition stream)
-             (format stream "Trying to exit with code: ~S"
-                     (exit-code condition)))))
-
-(defun parse-opts (argv)
-  (multiple-value-bind (options)
-      (handler-case
-          (handler-bind ((opts:missing-required-option (lambda (condition)
-                                                         (if (or (member "-h" argv :test #'equal)
-                                                                 (member "--help" argv :test #'equal)
-                                                                 (member "-v" argv :test #'equal)
-                                                                 (member "--version" argv :test #'equal))
-                                                           (invoke-restart 'opts:skip-option)
-                                                           (progn
-                                                             (format t "~a~%" condition)
-                                                             (error 'exit :code 1))))))
-            (opts:get-opts argv))
-        (opts:unknown-option (condition)
-          (format t "~a~%" condition)
-          (error 'exit :code 1))
-        (opts:missing-arg (condition)
-          (format t "~a~%" condition)
-          (error 'exit :code 1)))
-    (if (getf options :help)
-      (progn
-        (opts:describe
-          :prefix "XXX"
-          :args "[keywords]")
-        (error 'exit)))
-    (if (getf options :version)
-      (progn
-        (format T "~a~%" *version*)
-        (error 'exit)))
-    ; optional ones
-    (if (getf options :ignore-preallocations)
-      (setf *ignore-preallocations* T))
-    (if (getf options :enable-heuristic)
-      (setf *enable-heuristic* T))
-    (setf *today* (or (getf options :today) (get-universal-time)))))
-
 ; Input / parsing ---------------------------------------------------------------------------------
 
 (defun read-from-stream (s)
@@ -117,6 +49,11 @@
   (with-input-from-string (in s)
     (* 1.0 (read in))))
 
+(defun parse-percentage (s &aux (percentage (/ (parse-float s) 100)))
+  (unless (and (<= 0 percentage 1))
+    (error "~a not in the range [0, 100]" s))
+  percentage)
+
 (defun parse-activity (s &aux (parts (split-sequence:split-sequence #\Space s)))
   (make-activity :id (second parts)
                  :effort (parse-float (third parts))
@@ -126,7 +63,7 @@
 
 (defun parse-person (s &aux (parts (split-sequence:split-sequence #\Space s)))
   (make-person :id (second parts)
-               :allocation (/ (parse-float (third parts)) 100)
+               :allocation (parse-percentage (third parts))
                :working-on (nthcdr 3 parts)))
 
 (defstruct simulation
@@ -140,7 +77,7 @@
 (defun calculate-cost (person activity)
   (with-slots (allocation) person
     (with-slots (effort) activity
-      (let ((cost (/ effort allocation *dev-productivity*)))
+      (let ((cost (/ effort allocation *person-productivity*)))
         (if *round-up* (ceiling cost) cost)))))
 
 (defun parse-simulation (string)
@@ -260,7 +197,7 @@
 ;       :for p :across people
 ;       :for w :across (workers state)
 ;       :for remaining = (- target-date (been-busy-for w))
-;       :for effort = (* remaining (person-allocation p) *dev-productivity*)
+;       :for effort = (* remaining (person-allocation p) *person-productivity*)
 ;       :do (setf effort (min effort effort-remaining)
 ;                 effort-remaining (- effort-remaining effort)))
 ;     (pr effort-remaining)
@@ -349,6 +286,83 @@
                 (next-business-day from)
                 (next-business-day to)
                 person-id)))
+
+; Options -----------------------------------------------------------------------------------------
+
+(opts:define-opts
+  (:name :help
+         :description "print the help text and exit"
+         :short #\h
+         :long "help")
+  (:name :version
+         :description "print the version and exit"
+         :short #\v
+         :long "version")
+  (:name :ignore-preallocations
+         :description "ignore any pre-allocated activity"
+         :long "ignore-preallocations")
+  (:name :enable-heuristic
+         :description "enable heuristic (warning: ap might converge to a sub-optimal solution)"
+         :long "enable-heuristic")
+  (:name :today
+         :description "use DATE (YYYY-MM-DD) as first day of the simulation (defaults to today)"
+         :long "today"
+         :arg-parser #'parse-date
+         :meta-var "DATE")
+  (:name :productivity
+         :description "percentage of day spent by people working on activities (defaults to 100)"
+         :long "productivity"
+         :arg-parser #'parse-percentage
+         :meta-var "PROD"))
+
+(define-condition exit (error)
+  ((code
+     :initarg :code
+     :initform 0
+     :reader exit-code))
+  (:report (lambda (condition stream)
+             (format stream "Trying to exit with code: ~S"
+                     (exit-code condition)))))
+
+(defun parse-opts (argv)
+  (multiple-value-bind (options)
+      (handler-case
+          (handler-bind ((opts:missing-required-option (lambda (condition)
+                                                         (if (or (member "-h" argv :test #'equal)
+                                                                 (member "--help" argv :test #'equal)
+                                                                 (member "-v" argv :test #'equal)
+                                                                 (member "--version" argv :test #'equal))
+                                                           (invoke-restart 'opts:skip-option)
+                                                           (progn
+                                                             (format t "~a~%" condition)
+                                                             (error 'exit :code 1)))))
+                         (opts:arg-parser-failed (lambda (condition)
+                                                   (format t "~a~%" condition)
+                                                   (error 'exit :code 2))))
+            (opts:get-opts argv))
+        (opts:unknown-option (condition)
+          (format t "~a~%" condition)
+          (error 'exit :code 1))
+        (opts:missing-arg (condition)
+          (format t "~a~%" condition)
+          (error 'exit :code 1)))
+    (if (getf options :help)
+      (progn
+        (opts:describe
+          :prefix "XXX"
+          :args "[keywords]")
+        (error 'exit)))
+    (if (getf options :version)
+      (progn
+        (format T "~a~%" *version*)
+        (error 'exit)))
+    ; optional ones
+    (if (getf options :ignore-preallocations)
+      (setf *ignore-preallocations* T))
+    (if (getf options :enable-heuristic)
+      (setf *enable-heuristic* T))
+    (setf *today* (or (getf options :today) (get-universal-time)))
+    (setf *person-productivity* (or (getf options :productivity) 1))))
 
 ; API ---------------------------------------------------------------------------------------------
 
