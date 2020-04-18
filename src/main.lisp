@@ -5,13 +5,36 @@
 (defvar *enable-heuristic* nil "Boolean to tell the planner to use or not heuristic")
 (defvar *dev-productivity* 1)
 (defvar *round-up* nil)
-(defvar *today* nil)
+(defvar *today* nil "First day of the simulation")
+
+; Date utils --------------------------------------------------------------------------------------
 
 (defun parse-date (str)
+  "Parses a YYYY-MM-DD string, and returns its universal-time value.
+
+  => (parse-date \"1900-01-01\")
+  0
+
+  => (parse-date 1986-11-28)
+  2742508800"
   (destructuring-bind (second minute hour timezone) (list 0 0 0 0)
     (destructuring-bind (year month date)
         (mapcar #'parse-integer (split-sequence:split-sequence #\- str))
       (encode-universal-time second minute hour date month year timezone))))
+
+(defun next-business-day (n)
+  (recursively ((n n)
+                (curr-day *today*))
+    (multiple-value-bind (sec min hr day mon yr dow dst-p tz)
+        (decode-universal-time curr-day)
+      (declare (ignore sec min hr dst-p tz))
+      (if (>= dow 5)
+        (recur n (+ curr-day (* 24 60 60)))
+        (if (<  n 1)
+          (format nil "~d-~2,'0d-~2,'0d" yr mon day)
+          (recur (1- n) (+ curr-day (* 24 60 60))))))))
+
+; Options -----------------------------------------------------------------------------------------
 
 (opts:define-opts
   (:name :help
@@ -77,14 +100,9 @@
       (setf *ignore-preallocations* T))
     (if (getf options :enable-heuristic)
       (setf *enable-heuristic* T))
-    (if (getf options :today)
-      (setf *today* (getf options :today)))))
-    ; (if (getf options :atom-link-self)
-    ;   (setf *atom-link-self* (getf options :atom-link-self)))
-    ; (if (getf options :disable-pre-tag-wrapping)
-    ;   (setf *pre-wrap* NIL))
-    ; (if (getf options :max-items)
-    ;   (setf *max-items* (getf options :max-items)))))
+    (setf *today* (or (getf options :today) (get-universal-time)))))
+
+; Input / parsing ---------------------------------------------------------------------------------
 
 (defun read-from-stream (s)
   (loop
@@ -167,6 +185,8 @@
                        :already-working-on already-working-on
                        :already-been-busy-for already-been-busy-for
                        :already-completed already-completed))))
+
+; Search ------------------------------------------------------------------------------------------
 
 (defstruct (cost-info (:conc-name nil)) days dependencies)
 
@@ -258,6 +278,8 @@
   (let* ((effort-remaining (effort-remaining activities state)))
     (/ effort-remaining worker-count)))
 
+; Output ------------------------------------------------------------------------------------------
+
 (defun dummy-initial-state (worker-count)
   (make-state :workers (make-array worker-count
                                    :initial-element (make-worker :been-working-on 0
@@ -310,28 +332,6 @@
           end-state
           (create-shedule sim (search-backtrack come-from end-state)))))))
 
-(defun completion-day (sim-string &key ignore-preallocations disable-heuristic)
-  (let ((*ignore-preallocations* ignore-preallocations)
-        (*enable-heuristic* (not disable-heuristic)))
-    (multiple-value-bind (end-state)
-        (schedule-activities sim-string)
-      (target-date end-state))))
-
-(defun today ()
-  (or *today* (get-universal-time)))
-
-(defun next-business-day (n)
-  (recursively ((n n)
-                (curr-day (today)))
-    (multiple-value-bind (sec min hr day mon yr dow dst-p tz)
-        (decode-universal-time curr-day)
-      (declare (ignore sec min hr dst-p tz))
-      (if (>= dow 5)
-        (recur n (+ curr-day (* 24 60 60)))
-        (if (<  n 1)
-          (format nil "~d-~2,'0d-~2,'0d" yr mon day)
-          (recur (1- n) (+ curr-day (* 24 60 60))))))))
-
 (defun sort-schedule(schedule)
     (sort
       (copy-seq schedule)
@@ -349,6 +349,15 @@
                 (next-business-day from)
                 (next-business-day to)
                 person-id)))
+
+; API ---------------------------------------------------------------------------------------------
+
+(defun completion-day (sim-string &key ignore-preallocations disable-heuristic)
+  (let ((*ignore-preallocations* ignore-preallocations)
+        (*enable-heuristic* (not disable-heuristic)))
+    (multiple-value-bind (end-state)
+        (schedule-activities sim-string)
+      (target-date end-state))))
 
 (defun toplevel ()
   (handler-case (parse-opts (opts:argv))
