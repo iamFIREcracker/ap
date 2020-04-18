@@ -18,7 +18,10 @@
          :long "version")
   (:name :ignore-preallocations
          :description "ignore any pre-allocated activity"
-         :long "ignore-preallocations"))
+         :long "ignore-preallocations")
+  (:name :enable-heuristic
+         :description "enable heuristic (warning: ap might converge to a sub-optimal solution)"
+         :long "enable-heuristic"))
 
 (define-condition exit (error)
   ((code
@@ -60,7 +63,9 @@
         (error 'exit)))
     ; optional ones
     (if (getf options :ignore-preallocations)
-      (setf *ignore-preallocations* T))))
+      (setf *ignore-preallocations* T))
+    (if (getf options :enable-heuristic)
+      (setf *enable-heuristic* T))))
     ; (if (getf options :atom-link-self)
     ;   (setf *atom-link-self* (getf options :atom-link-self)))
     ; (if (getf options :disable-pre-tag-wrapping)
