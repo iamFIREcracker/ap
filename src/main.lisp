@@ -15,7 +15,10 @@
   (:name :version
          :description "print the version and exit"
          :short #\v
-         :long "version"))
+         :long "version")
+  (:name :ignore-preallocations
+         :description "ignore any pre-allocated activity"
+         :long "ignore-preallocations"))
 
 (define-condition exit (error)
   ((code
@@ -48,16 +51,16 @@
     (if (getf options :help)
       (progn
         (opts:describe
-          :prefix "Some description"
+          :prefix "XXX"
           :args "[keywords]")
         (error 'exit)))
     (if (getf options :version)
       (progn
         (format T "~a~%" *version*)
-        (error 'exit)))))
+        (error 'exit)))
     ; optional ones
-    ; (if (getf options :image)
-    ;   (setf *image* (getf options :image)))
+    (if (getf options :ignore-preallocations)
+      (setf *ignore-preallocations* T))))
     ; (if (getf options :atom-link-self)
     ;   (setf *atom-link-self* (getf options :atom-link-self)))
     ; (if (getf options :disable-pre-tag-wrapping)
