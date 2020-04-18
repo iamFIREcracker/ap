@@ -7,6 +7,12 @@
 (defvar *round-up* nil)
 (defvar *today* nil)
 
+(defun parse-date (str)
+  (destructuring-bind (second minute hour timezone) (list 0 0 0 0)
+    (destructuring-bind (year month date)
+        (mapcar #'parse-integer (split-sequence:split-sequence #\- str))
+      (encode-universal-time second minute hour date month year timezone))))
+
 (opts:define-opts
   (:name :help
          :description "print the help text and exit"
@@ -21,7 +27,12 @@
          :long "ignore-preallocations")
   (:name :enable-heuristic
          :description "enable heuristic (warning: ap might converge to a sub-optimal solution)"
-         :long "enable-heuristic"))
+         :long "enable-heuristic")
+  (:name :today
+         :description "use DATE (YYYY-MM-DD) as first day of the simulation"
+         :long "today"
+         :arg-parser #'parse-date
+         :meta-var "DATE"))
 
 (define-condition exit (error)
   ((code
@@ -65,14 +76,15 @@
     (if (getf options :ignore-preallocations)
       (setf *ignore-preallocations* T))
     (if (getf options :enable-heuristic)
-      (setf *enable-heuristic* T))))
+      (setf *enable-heuristic* T))
+    (if (getf options :today)
+      (setf *today* (getf options :today)))))
     ; (if (getf options :atom-link-self)
     ;   (setf *atom-link-self* (getf options :atom-link-self)))
     ; (if (getf options :disable-pre-tag-wrapping)
     ;   (setf *pre-wrap* NIL))
     ; (if (getf options :max-items)
     ;   (setf *max-items* (getf options :max-items)))))
-
 
 (defun read-from-stream (s)
   (loop
@@ -306,12 +318,7 @@
       (target-date end-state))))
 
 (defun today ()
-  (if (not *today*)
-    (get-universal-time)
-    (destructuring-bind (second minute hour) (list 0 0 0)
-      (destructuring-bind (year month date)
-          (mapcar #'parse-integer (split-sequence:split-sequence #\- *today*))
-        (encode-universal-time second minute hour date month year)))))
+  (or *today* (get-universal-time)))
 
 (defun next-business-day (n)
   (recursively ((n n)
@@ -355,7 +362,7 @@
 ; Scratch -----------------------------------------------------------------------------------------
 
 #+nil
-(let ((*today* "2020-03-30"))
+(let ((*today* (parse-date "2020-03-30")))
   (multiple-value-bind (end-state schedule)
       (schedule-activities (uiop:read-file-string #P"test/known-scenario.txt"))
     (declare (ignore end-state))
