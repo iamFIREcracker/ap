@@ -87,6 +87,8 @@
       :until (zerop (length line))
       :when (string= (subseq line 0 8) "activity") :do (push (parse-activity line) activities)
       :when (string= (subseq line 0 6) "person") :do (push (parse-person line) people))
+    (setf activities (reverse activities)
+          people (reverse people))
     (let ((dependencies (make-array (length activities) :initial-element 0))
           (already-working-on (make-array (length people) :initial-element -1))
           (already-been-busy-for (make-array (length people) :initial-element 0))
