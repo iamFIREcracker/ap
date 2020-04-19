@@ -1,0 +1,26 @@
+#!/usr/bin/env sh
+
+set -ex
+
+case $(uname -rs) in
+  *Darwin*)
+    BIN_REMOTE=ap-osx
+    BIN_LOCAL=ap
+    ;;
+  *CYGWIN*|*MINGW*)
+    BIN_REMOTE=ap.exe
+    BIN_LOCAL=ap.exe
+    ;;
+  *Microsoft*|*)
+    BIN_REMOTE=ap-linux
+    BIN_LOCAL=ap
+    ;;
+esac
+
+mkdir -p bin
+curl --silent https://api.github.com/repos/iamFIREcracker/ap/releases/latest \
+       | grep "browser_download_url.*$BIN_REMOTE" \
+       | cut -d : -f 2,3 \
+       | tr -d \" \
+       | xargs -I {} curl --location {} --output bin/$BIN_LOCAL
+chmod +x bin/$BIN_LOCAL
