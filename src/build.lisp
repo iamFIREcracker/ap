@@ -8,7 +8,7 @@
 
 (setf ap:*version* (let* ((system (asdf:find-system :ap nil))
                           (base-version (asdf:component-version system))
-                          (git-cmd (format NIL "git rev-list ~a..HEAD --count" base-version))
+                          (git-cmd (format NIL "git rev-list v~a..HEAD --count" base-version))
                           (output (uiop:run-program git-cmd
                                                     :output :string
                                                     :ignore-error-status T))
