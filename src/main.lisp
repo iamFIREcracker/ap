@@ -142,7 +142,7 @@
       costs)))
 
 (defstruct (worker (:conc-name nil)) been-working-on been-busy-for)
-(defstruct (state (:conc-name nil)) workers completed)
+(defstruct (state (:conc-name nil)) workers completed complete-dates)
 
 (defun change (seq i el)
   (let ((c (copy-seq seq)))
@@ -152,35 +152,54 @@
 (defun target-date (state)
   (maximization (workers state) :key #'been-busy-for))
 
+(defun activity-completed-p (j completed)
+  (= (logand (ash 1 j) completed) 0))
+
+(defun dependencies-completed-p (dependencies completed)
+  (= (logandc2 dependencies completed) 0))
+
+(defun dependencies-already-completed-p (dependencies completed complete-dates been-busy-for)
+  (and (dependencies-completed-p dependencies completed)
+       (loop
+         :for j :from 0 :below (length complete-dates)
+         :for complete-date = (aref complete-dates j)
+         :always (or (activity-completed-p j dependencies)
+                     (>= been-busy-for complete-date)))))
+
 (defun neighbors (costs activity-count state)
   (let ((target-date (target-date state)))
-    (with-slots (workers completed) state
+    (with-slots (workers completed complete-dates) state
       (loop
         :for i :below (length workers)
         :for w :across workers
+        :for been-busy-for = (been-busy-for w)
         :appending (loop
                      :for j :below activity-count
                      :for cost = (aref costs i j)
                      :when (and
                              cost
-                             (= (logand (ash 1 j) completed) 0)
-                             (= (logandc2 (dependencies cost) completed) 0))
-                     :collecting (let* ((next-worker (make-worker :been-working-on (logior (been-working-on w) (ash 1 j))
-                                                                  :been-busy-for (+ (days cost) (been-busy-for w))))
+                             (activity-completed-p j completed)
+                             (dependencies-already-completed-p (dependencies cost) completed complete-dates been-busy-for))
+                     :collecting (let* ((been-busy-for (+ (days cost) been-busy-for))
+                                        (next-worker (make-worker :been-working-on (logior (been-working-on w) (ash 1 j))
+                                                                  :been-busy-for been-busy-for))
                                         (workers (change workers i next-worker))
+                                        (complete-dates (change complete-dates j been-busy-for))
                                         (next-state (make-state :workers workers
-                                                                :completed (logior completed (ash 1 j))))
+                                                                :completed (logior completed (ash 1 j))
+                                                                :complete-dates complete-dates))
                                         (next-target-date (target-date next-state)))
                                    (cons
                                      next-state
                                      (max 0 (- next-target-date target-date)))))))))
 
 (defun activities-remaining (activities state)
-  (loop
-    :for j :below (length activities)
-    :for a :across activities
-    :when (= (logand (ash 1 j) (completed state)) 0)
-    :collect a))
+  (with-slots (completed) state
+    (loop
+      :for j :below (length activities)
+      :for a :across activities
+      :when (activity-completed-p j completed)
+      :collect a)))
 
 (defun effort-remaining (activities state)
   (reduce #'+ (activities-remaining activities state)
@@ -250,8 +269,16 @@
          (activity-count (length (simulation-activities sim)))
          (all-activities (1- (ash 1 activity-count)))
          (costs (precompute-costs sim))
+         (complete-dates (loop
+                           :with result = (make-array activity-count :initial-element -1)
+                           :for been-working-on :across (simulation-already-working-on sim)
+                           :for been-busy-for :across (simulation-already-been-busy-for sim)
+                           :when (>= been-working-on 0)
+                           :do (setf (aref result been-working-on) been-busy-for)
+                           :finally (return result)))
          (init-state (make-state :workers workers
-                                 :completed (simulation-already-completed sim))))
+                                 :completed (simulation-already-completed sim)
+                                 :complete-dates complete-dates)))
     (multiple-value-bind (end-state cost-so-far come-from)
         (a* init-state
             :init-cost (target-date init-state)
