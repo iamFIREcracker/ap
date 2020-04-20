@@ -103,6 +103,7 @@
         :do (loop
               :for dep-id :in (activity-depends-on activity)
               :for j = (gethash dep-id activity-id-map)
+              :unless j :do (error "Cannot find ~a's dependency: ~a" (activity-id activity) dep-id)
               :do (setf (aref dependencies i)
                         (logior (aref dependencies i) (ash 1 j)))))
       (unless *ignore-preallocations*
