@@ -1,0 +1,20 @@
+activity act-01 3
+activity act-02 5
+activity act-03 5
+activity act-04 5
+activity act-05 3
+activity act-06 1
+activity act-07 3
+activity act-08 3
+activity act-09 5
+activity act-10 3
+activity act-11 5
+activity act-12 3 act-11
+activity act-13 3
+person user-01 80 act-13
+person user-02 20 act-10
+person user-03 60 act-11
+person user-04 80 act-08
+person user-05 60 act-06
+person user-06 20 act-05
+person user-07 80 act-07
