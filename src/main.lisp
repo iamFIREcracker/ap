@@ -413,8 +413,22 @@
 ; Scratch -----------------------------------------------------------------------------------------
 
 #+nil
-(let ((*today* (parse-date "2020-03-30")))
-  (multiple-value-bind (end-state schedule)
-      (schedule-activities (uiop:read-file-string #P"test/known-scenario.txt"))
-    (declare (ignore end-state))
-    (pprint-schedule schedule)))
+(time
+  (let ((*today* (parse-date "2020-03-30"))
+        (*ignore-preallocations* nil)
+        (*enable-heuristic* t))
+    (multiple-value-bind (end-state schedule)
+        (schedule-activities (uiop:read-file-string #P"test/known-scenario.txt"))
+      (declare (ignore end-state))
+      (pprint-schedule schedule))))
+
+#+nil
+(time
+  (let ((*today* (parse-date "2020-04-10"))
+        (*ignore-preallocations* nil)
+        (*enable-heuristic* nil))
+    (multiple-value-bind (end-state schedule)
+        (schedule-activities (uiop:read-file-string #P"test/known-scenario-2.txt"))
+      (declare (ignore end-state))
+      (pr end-state)
+      (pprint-schedule schedule))))
