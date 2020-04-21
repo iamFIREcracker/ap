@@ -42,7 +42,7 @@ deploy:
   provider: releases
   token:
     secure: "Ls2o91U/acyIH9e0X9ACMZgzt5a3Ece396mHyEiFDKx+oH4e+EGwZshrIvKqucSPiGW46+HFIZBZIiv+seHeo1HvCRME4Aa/3KTSIUz4LXgmJqTD/3Yxkt9NWMbnjkO9tTh78+6geudX5kbhPm8LMCOZIsZ929+x/4yNyajAoWLlZ+9EBbDYMjGw7Z96DmnraehAbFahj30LZp0O0tQLUH1dimH4gAb1EpS1iV6y5hO8bLDtK+gp7wgMxmGhA1C92cY4wYyJEWPAoQ0iQZXUCanVlnZriGGP9n6Y3b4jxxnTkX2vs5PAR8X9zGCVnYPMtrJ0C+Of6sfvHagWpFAwFHBsiX77GYRTkrURmB107dLu43FzVp2hQyF5v8d4F+etBOScHZQOFcqiJRp8Z2QGBGFMhi7FJxB8cuKPWKk0M+e5T7NKggzcz1R+o6pSTVDu5Z4HH3cCdqmSrHdemgpcNgjb3DNE2iMdNKnfr39NsybDYnlSGMcimhh/Q/ClmLLDtTAwfgim2XRV9ahc1WfrKzqWDEEgIsKvo2b1x+Vzw7jBFNyCFCIfJjHaxXB8V4HKGes4UkHvaTnbU5AeHZykb/CkyZhGBZCHmQQ6cxvMHT3yEq7efx59VNltMMB1lX/UjHfWJuhrtycHq5yWOJP8IMBrmJ7ktFr+87my8IJfYe4="
-  cleanup: false
+  skip_cleanup: true
   file: bin/$DEST
   on:
     repo: iamFIREcracker/ap
