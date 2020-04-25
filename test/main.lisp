@@ -22,7 +22,7 @@
                                 :disable-heuristic T))))
 
 ; (1am:test ap/multiple-preallocations-per-person/completion-day
-;   (1am:is (= 10 (completion-day (uiop:read-file-string #P"test/multiple-preallocations-per-person.txt")))))
+;   (1am:is (= 5 (completion-day (uiop:read-file-string #P"test/multiple-preallocations-per-person.txt")))))
 
 (1am:test ap/multiple-preallocations-per-person/completion-day/preallocations-ignored
   (1am:is (= 5 (completion-day (uiop:read-file-string #P"test/multiple-preallocations-per-person.txt")
@@ -74,4 +74,26 @@
 
 ; (1am:test ap/known-scenario-2/completion-day/preallocations-ignored
 ;   (1am:is (= 13.75 (completion-day (uiop:read-file-string #P"test/known-scenario-2.txt")
+;                                    :ignore-preallocations T))))
+
+(1am:test ap/known-scenario-3/completion-day
+  (1am:is (= 7.5 (completion-day (uiop:read-file-string #P"test/known-scenario-3.txt")))))
+
+(1am:test ap/known-scenario-3/completion-day/skip-weekends
+  (1am:is (= 11.5 (completion-day (uiop:read-file-string #P"test/known-scenario-3.txt")
+                                  :skip-weekends T
+                                  :today "2020-04-10"))))
+
+(1am:test ap/known-scenario-3/completion-day/no-heuristic
+  (1am:is (= 7.5 (completion-day (uiop:read-file-string #P"test/known-scenario-3.txt")
+                                 :disable-heuristic T))))
+
+(1am:test ap/known-scenario-3/completion-day/no-heuristic/skip-weekends
+  (1am:is (= 11.5 (completion-day (uiop:read-file-string #P"test/known-scenario-3.txt")
+                                  :disable-heuristic T
+                                  :skip-weekends T
+                                  :today "2020-04-10"))))
+
+; (1am:test ap/known-scenario-3/completion-day/preallocations-ignored
+;   (1am:is (= 13.75 (completion-day (uiop:read-file-string #P"test/known-scenario-3.txt")
 ;                                    :ignore-preallocations T))))
