@@ -5,6 +5,7 @@
 (defvar *enable-heuristic* nil "Boolean to tell the planner to use or not heuristic")
 (defvar *person-productivity* 1 "Person productivity")
 (defvar *today* nil "First day of the simulation")
+(defvar *skip-weekends* t "Skip weekends when calculating days of effort")
 
 ; Date utils --------------------------------------------------------------------------------------
 
@@ -21,17 +22,44 @@
         (mapcar #'parse-integer (split-sequence:split-sequence #\- str))
       (encode-universal-time second minute hour date month year timezone))))
 
-(defun next-business-day (n)
-  (recursively ((n n)
-                (curr-day *today*))
-    (multiple-value-bind (sec min hr day mon yr dow dst-p tz)
-        (decode-universal-time curr-day)
-      (declare (ignore sec min hr dst-p tz))
-      (if (>= dow 5)
-        (recur n (+ curr-day (* 24 60 60)))
-        (if (<  n 1)
-          (format nil "~d-~2,'0d-~2,'0d" yr mon day)
-          (recur (1- n) (+ curr-day (* 24 60 60))))))))
+(defun offset-to-universal-time (offset)
+  "Adds OFFSET days to *TODAY*, and return its universal time representation.
+
+  Note: if OFFSET is not a natural number, (FLOOR OFFSET) will be used instead."
+  (+ *today* (* (floor offset) (* 24 60 60))))
+
+(defun offset-is-weekend-p (offset)
+  "Returns T if *TODAY* plus OFFSET days falls on a weekend"
+  (multiple-value-bind (sec min hr day mon yr dow dst-p tz)
+      (decode-universal-time (offset-to-universal-time offset))
+    (declare (ignore sec min hr day mon yr dst-p tz))
+    (>= dow 5)))
+
+(defun offset-add-business-days (offset n)
+  "Adds N business days to OFFSET.
+
+  If OFFSET points to a Sunday, and N is 0, the function will return next Monday's offset.
+
+  If N is negative, the function will ERROR out."
+  (when (< n 0)
+    (error "The number of business days to add, N, cannot be negative: ~a" n))
+  (if (not *skip-weekends*)
+    (+ offset n)
+    (recursively ((offset offset)
+                  (n n))
+      (if (offset-is-weekend-p offset)
+        (recur (1+ offset) n)
+        (if (zerop n)
+          offset
+          (let ((inc (min n 1)))
+            (recur (+ offset inc) (- n inc))))))))
+
+(defun offset-to-date (offset)
+  "Converts an offset to a YYYY-MM-DD string."
+  (multiple-value-bind (sec min hr day mon yr dow dst-p tz)
+      (decode-universal-time (offset-to-universal-time offset))
+    (declare (ignore sec min hr dow dst-p tz))
+    (format nil "~d-~2,'0d-~2,'0d" yr mon day)))
 
 ; Input / parsing ---------------------------------------------------------------------------------
 
@@ -73,7 +101,7 @@
   already-been-busy-for
   already-completed)
 
-(defun calculate-cost (person activity)
+(defun days-to-complete (person activity)
   (with-slots (allocation) person
     (with-slots (effort) activity
       (/ effort allocation *person-productivity*))))
@@ -114,8 +142,9 @@
                 :for act-id :in (person-working-on person)
                 :for j = (gethash act-id activity-id-map)
                 :do (setf (aref already-working-on i) j
-                          (aref already-been-busy-for i) (calculate-cost person
-                                                                         (nth j activities))
+                          (aref already-been-busy-for i) (offset-add-business-days
+                                                           0
+                                                           (days-to-complete person (nth j activities)))
                           already-completed (logior already-completed (ash 1 j))))))
       (make-simulation :activities (coerce activities 'vector)
                        :dependencies dependencies
@@ -139,7 +168,7 @@
         :do (loop
               :for j :below m
               :for activity :across activities
-              :for days = (calculate-cost person activity)
+              :for days = (days-to-complete person activity)
               :do (setf (aref costs i j) (make-cost-info :days days
                                                          :dependencies (aref dependencies j)))))
       costs)))
@@ -183,7 +212,7 @@
                              cost
                              (activity-completed-p j completed)
                              (dependencies-already-completed-p (dependencies cost) completed complete-dates been-busy-for))
-                     :collecting (let* ((been-busy-for (+ (days cost) been-busy-for))
+                     :collecting (let* ((been-busy-for (offset-add-business-days been-busy-for (days cost)))
                                         (next-worker (make-worker :been-working-on (logior (been-working-on w) (ash 1 j))
                                                                   :been-busy-for been-busy-for))
                                         (workers (change workers i next-worker))
@@ -311,8 +340,8 @@
     :for (activity-id from to person-id) :in schedule
     :do (format t "~a ~a ~a ~a~&"
                 activity-id
-                (next-business-day from)
-                (next-business-day to)
+                (offset-to-date from)
+                (offset-to-date to)
                 person-id)))
 
 ; Options -----------------------------------------------------------------------------------------
@@ -341,7 +370,10 @@
          :description "percentage of day spent by people working on activities (defaults to 100)"
          :long "productivity"
          :arg-parser #'parse-percentage
-         :meta-var "PROD"))
+         :meta-var "PROD")
+  (:name :disable-skip-weekends
+         :description "Don't skip weekends when calculating actual days of efforts."
+         :long "disable-skip-weekends"))
 
 (define-condition exit (error)
   ((code
@@ -389,14 +421,19 @@
       (setf *ignore-preallocations* T))
     (if (getf options :enable-heuristic)
       (setf *enable-heuristic* T))
+    (if (getf options :disable-skip-weekends)
+      (setf *skip-weekends* nil))
     (setf *today* (or (getf options :today) (get-universal-time)))
     (setf *person-productivity* (or (getf options :productivity) 1))))
 
 ; API ---------------------------------------------------------------------------------------------
 
-(defun completion-day (sim-string &key ignore-preallocations disable-heuristic)
+(defun completion-day (sim-string &key ignore-preallocations disable-heuristic
+                                  skip-weekends today)
   (let ((*ignore-preallocations* ignore-preallocations)
-        (*enable-heuristic* (not disable-heuristic)))
+        (*enable-heuristic* (not disable-heuristic))
+        (*skip-weekends* skip-weekends)
+        (*today* (or (and today (parse-date today)) (get-universal-time))))
     (multiple-value-bind (end-state)
         (schedule-activities sim-string)
       (target-date end-state))))

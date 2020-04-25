@@ -35,9 +35,20 @@
 (1am:test ap/known-scenario/completion-day
   (1am:is (= 16.25 (completion-day (uiop:read-file-string #P"test/known-scenario.txt")))))
 
+(1am:test ap/known-scenario/completion-day/skip-weekends
+  (1am:is (= 22.25 (completion-day (uiop:read-file-string #P"test/known-scenario.txt")
+                                   :skip-weekends T
+                                   :today "2020-03-30"))))
+
 (1am:test ap/known-scenario/completion-day/no-heuristic
   (1am:is (= 16.25 (completion-day (uiop:read-file-string #P"test/known-scenario.txt")
                                    :disable-heuristic T))))
+
+(1am:test ap/known-scenario/completion-day/no-heuristic/skip-weekends
+  (1am:is (= 22.25 (completion-day (uiop:read-file-string #P"test/known-scenario.txt")
+                                   :disable-heuristic T
+                                   :skip-weekends T
+                                   :today "2020-03-30"))))
 
 ; (1am:test ap/known-scenario/completion-day/preallocations-ignored
 ;   (1am:is (= 16.25 (completion-day (uiop:read-file-string #P"test/known-scenario.txt")
@@ -46,9 +57,20 @@
 (1am:test ap/known-scenario-2/completion-day
   (1am:is (= 15 (completion-day (uiop:read-file-string #P"test/known-scenario-2.txt")))))
 
+(1am:test ap/known-scenario-2/completion-day/skip-weekends
+  (1am:is (= 21 (completion-day (uiop:read-file-string #P"test/known-scenario-2.txt")
+                                :skip-weekends T
+                                :today "2020-04-10"))))
+
 (1am:test ap/known-scenario-2/completion-day/no-heuristic
   (1am:is (= 15 (completion-day (uiop:read-file-string #P"test/known-scenario-2.txt")
                                 :disable-heuristic T))))
+
+(1am:test ap/known-scenario-2/completion-day/no-heuristic/skip-weekends
+  (1am:is (= 21 (completion-day (uiop:read-file-string #P"test/known-scenario-2.txt")
+                                :disable-heuristic T
+                                :skip-weekends T
+                                :today "2020-04-10"))))
 
 ; (1am:test ap/known-scenario-2/completion-day/preallocations-ignored
 ;   (1am:is (= 13.75 (completion-day (uiop:read-file-string #P"test/known-scenario-2.txt")
