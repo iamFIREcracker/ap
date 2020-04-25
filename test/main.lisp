@@ -22,7 +22,7 @@
                                 :disable-heuristic T))))
 
 ; (1am:test ap/multiple-preallocations-per-person/completion-day
-;   (1am:is (= 5 (completion-day (uiop:read-file-string #P"test/multiple-preallocations-per-person.txt")))))
+;   (1am:is (= 10 (completion-day (uiop:read-file-string #P"test/multiple-preallocations-per-person.txt")))))
 
 (1am:test ap/multiple-preallocations-per-person/completion-day/preallocations-ignored
   (1am:is (= 5 (completion-day (uiop:read-file-string #P"test/multiple-preallocations-per-person.txt")
