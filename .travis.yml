@@ -32,9 +32,9 @@ install:
     fi
 
 script:
+  - make test-ros
   - make binary-ros
   - bin/ap --version
-  - make test
 
 before_deploy:
   - mv bin/ap bin/$DEST
