@@ -58,7 +58,7 @@
 ;                                 :enable-heuristic t))))
 
 
-(1am:test ap/known-scenario-3/completion-day/skip-weekends
+(1am:test ap/known-scenario-3/completion-day
   (1am:is (= 11.5 (completion-day (uiop:read-file-string #P"test/known-scenario-3.txt")
                                   :today "2020-04-24"))))
 
