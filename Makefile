@@ -45,13 +45,13 @@ binary: binary-sbcl
 
 # Tests -----------------------------------------------------------------------
 
-test: test-sbcl
-
 test-sbcl: $(lisps)
 	sbcl --noinform $(cl-test-args)
 
 test-ros: $(lisps)
 	ros run $(cl-print-version-args) $(cl-test-args)
+
+test: test-sbcl
 
 # Install ---------------------------------------------------------------------
 install:

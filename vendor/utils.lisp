@@ -26,52 +26,13 @@
   "Adds `item` to the queue, and assigns it priority `priority`."
   (pileup:heap-insert (cons item priority ) hq))
 
-(defun a* (init-state &key (init-cost 0) goal-state goalp neighbors
-                      heuristic (test 'eql)
-                      &aux (cost-so-far (make-hash-table :test test))
-                      (come-from (make-hash-table :test test)))
-  (when goal-state
-    (setf goalp (partial-1 test goal-state)))
-  (unless heuristic
-    (setf heuristic (constantly 0)))
-  (flet ((calc-priority (state-cost state)
-           (+ state-cost (funcall heuristic state))))
-    (hash-table-insert cost-so-far init-state init-cost)
-    (values
-      (loop
-        :with frontier = (make-hq)
-        :initially (hq-insert frontier (cons init-state init-cost) (calc-priority init-cost init-state))
-        :until (hq-empty-p frontier)
-        :for (state . state-cost) = (hq-pop frontier)
-        :when (funcall goalp state) :return state
-        :do (when (= state-cost (gethash state cost-so-far))
-              (loop
-                :for (next-state . cost) :in (funcall neighbors state)
-                :for next-cost = (+ state-cost cost)
-                :do (multiple-value-bind (existing-cost present-p) (gethash next-state cost-so-far)
-                      (when (or (not present-p) (< next-cost existing-cost))
-                        (hash-table-insert cost-so-far next-state next-cost)
-                        (hash-table-insert come-from next-state state)
-                        (hq-insert frontier (cons next-state next-cost) (calc-priority next-cost next-state)))))))
-      cost-so-far
-      come-from)))
-
-(defun hash-table-insert (ht key value) ;; XXX this cannot be defined as macro, somehow..
-  (setf (gethash key ht) value))
-
-(defun maximization (x &key (key 'identity))
-  "Returns the max of all the elements of `x`, or NIL if `x` is _empty_.
-
-  If `key` is specified, this function will return the max of all
-  the values of `x`, `map`-ed using `key`."
-  (loop
-    :for e :being :the :elements :of x
-    :for v = (funcall key e)
-    :maximizing v))
-
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun args-append (args name)
     (append args (list name))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun args-replace (placeholder args name)
+    (subst name placeholder args)))
 
 (defmacro recursively (bindings &body body)
   "Execute `body` recursively, like Clojure's `loop`/`recur`.
@@ -120,6 +81,49 @@
     (let ((actual-args (args-replace-placeholder-or-append args '_ more-arg)))
       `(lambda (,more-arg)
           (funcall ,fn ,@actual-args)))))
+
+(defun a* (init-state &key (init-cost 0) goal-state goalp neighbors
+                      heuristic (test 'eql)
+                      &aux (cost-so-far (make-hash-table :test test))
+                      (come-from (make-hash-table :test test)))
+  (when goal-state
+    (setf goalp (partial-1 test goal-state)))
+  (unless heuristic
+    (setf heuristic (constantly 0)))
+  (flet ((calc-priority (state-cost state)
+           (+ state-cost (funcall heuristic state))))
+    (hash-table-insert cost-so-far init-state init-cost)
+    (values
+      (loop
+        :with frontier = (make-hq)
+        :initially (hq-insert frontier (cons init-state init-cost) (calc-priority init-cost init-state))
+        :until (hq-empty-p frontier)
+        :for (state . state-cost) = (hq-pop frontier)
+        :when (funcall goalp state) :return state
+        :do (when (= state-cost (gethash state cost-so-far))
+              (loop
+                :for (next-state . cost) :in (funcall neighbors state)
+                :for next-cost = (+ state-cost cost)
+                :do (multiple-value-bind (existing-cost present-p) (gethash next-state cost-so-far)
+                      (when (or (not present-p) (< next-cost existing-cost))
+                        (hash-table-insert cost-so-far next-state next-cost)
+                        (hash-table-insert come-from next-state state)
+                        (hq-insert frontier (cons next-state next-cost) (calc-priority next-cost next-state)))))))
+      cost-so-far
+      come-from)))
+
+(defun hash-table-insert (ht key value) ;; XXX this cannot be defined as macro, somehow..
+  (setf (gethash key ht) value))
+
+(defun maximization (x &key (key 'identity))
+  "Returns the max of all the elements of `x`, or NIL if `x` is _empty_.
+
+  If `key` is specified, this function will return the max of all
+  the values of `x`, `map`-ed using `key`."
+  (loop
+    :for e :being :the :elements :of x
+    :for v = (funcall key e)
+    :maximizing v))
 
 (defun search-backtrack (come-from curr)
   (nreverse (recursively ((curr curr))
