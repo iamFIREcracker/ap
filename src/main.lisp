@@ -118,7 +118,7 @@
     (setf activities (reverse activities)
           people (reverse people))
     (let ((dependencies (make-array (length activities) :initial-element 0))
-          (already-working-on (make-array (length people) :initial-element -1))
+          (already-working-on (make-array (length people) :initial-element 0))
           (already-been-busy-for (make-array (length people) :initial-element 0))
           (already-completed 0))
       (loop
@@ -141,9 +141,11 @@
           :do (loop
                 :for act-id :in (person-working-on person)
                 :for j = (gethash act-id activity-id-map)
-                :do (setf (aref already-working-on i) j
+                :do (setf (aref already-working-on i) (logior
+                                                        (aref already-working-on i)
+                                                        (ash 1 j))
                           (aref already-been-busy-for i) (offset-add-business-days
-                                                           0
+                                                           (aref already-been-busy-for i)
                                                            (days-to-complete person (nth j activities)))
                           already-completed (logior already-completed (ash 1 j))))))
       (make-simulation :activities (coerce activities 'vector)
@@ -152,6 +154,20 @@
                        :already-working-on already-working-on
                        :already-been-busy-for already-been-busy-for
                        :already-completed already-completed))))
+
+; Bits --------------------------------------------------------------------------------------------
+
+(defun bit-set-p (j number)
+  "Returns T if the j-th bit of NUMBER, is set."
+  (= (logandc2 (ash 1 j) number) 0))
+
+(defun all-bits-set (number)
+  (loop
+    :for j :from 0
+    :for mask = (ash 1 j)
+    :until (> mask number)
+    :when (bit-set-p j number)
+    :collect j))
 
 ; Search ------------------------------------------------------------------------------------------
 
@@ -184,19 +200,15 @@
 (defun target-date (state)
   (maximization (workers state) :key #'been-busy-for))
 
-(defun activity-completed-p (j completed)
-  (= (logand (ash 1 j) completed) 0))
-
 (defun dependencies-completed-p (dependencies completed)
   (= (logandc2 dependencies completed) 0))
 
 (defun dependencies-already-completed-p (dependencies completed complete-dates been-busy-for)
   (and (dependencies-completed-p dependencies completed)
        (loop
-         :for j :from 0 :below (length complete-dates)
+         :for j :in (all-bits-set dependencies)
          :for complete-date = (aref complete-dates j)
-         :always (or (activity-completed-p j dependencies)
-                     (>= been-busy-for complete-date)))))
+         :always (>= been-busy-for complete-date))))
 
 (defun neighbors (costs activity-count state)
   (let ((target-date (target-date state)))
@@ -210,7 +222,7 @@
                      :for cost = (aref costs i j)
                      :when (and
                              cost
-                             (activity-completed-p j completed)
+                             (not (bit-set-p j completed))
                              (dependencies-already-completed-p (dependencies cost) completed complete-dates been-busy-for))
                      :collecting (let* ((been-busy-for (offset-add-business-days been-busy-for (days cost)))
                                         (next-worker (make-worker :been-working-on (logior (been-working-on w) (ash 1 j))
@@ -230,7 +242,7 @@
     (loop
       :for j :below (length activities)
       :for a :across activities
-      :when (activity-completed-p j completed)
+      :when (not (bit-set-p j completed))
       :collect a)))
 
 (defun effort-remaining (activities state)
@@ -282,19 +294,20 @@
                    :for w2 :across (workers s2)
                    :for changed = (- (been-working-on w2) (been-working-on w1))
                    :unless (zerop changed)
-                   :collecting (let ((completed (truncate (log changed 2))))
-                                 (list
-                                   (activity-id (aref (simulation-activities sim) completed))
-                                   (been-busy-for w1)
-                                   (been-busy-for w2)
-                                   (person-id (aref (simulation-people sim) i))))))))
+                   :appending (loop
+                                :for j :in (all-bits-set changed)
+                                :collect (list
+                                           (activity-id (aref (simulation-activities sim) j))
+                                           (been-busy-for w1)
+                                           (been-busy-for w2)
+                                           (person-id (aref (simulation-people sim) i))))))))
 
 (defun schedule-activities (sim-string)
   (let* ((sim (parse-simulation sim-string))
          (workers (coerce (loop
                             :for been-working-on :across (simulation-already-working-on sim)
                             :for been-busy-for :across (simulation-already-been-busy-for sim)
-                            :collect (make-worker :been-working-on (ash 1 been-working-on)
+                            :collect (make-worker :been-working-on been-working-on
                                                   :been-busy-for been-busy-for))
                           'vector))
          (worker-count (length workers))
@@ -305,8 +318,10 @@
                            :with result = (make-array activity-count :initial-element -1)
                            :for been-working-on :across (simulation-already-working-on sim)
                            :for been-busy-for :across (simulation-already-been-busy-for sim)
-                           :when (>= been-working-on 0)
-                           :do (setf (aref result been-working-on) been-busy-for)
+                           :unless (zerop been-working-on)
+                           :do (loop
+                                 :for j :in (all-bits-set been-working-on)
+                                 :do (setf (aref result j) been-busy-for))
                            :finally (return result)))
          (init-state (make-state :workers workers
                                  :completed (simulation-already-completed sim)
