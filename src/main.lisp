@@ -443,11 +443,11 @@
 
 ; API ---------------------------------------------------------------------------------------------
 
-(defun completion-day (sim-string &key ignore-preallocations disable-heuristic
-                                  skip-weekends today)
+(defun completion-day (sim-string &key today ignore-preallocations enable-heuristic
+                                  disable-skip-weekends)
   (let ((*ignore-preallocations* ignore-preallocations)
-        (*enable-heuristic* (not disable-heuristic))
-        (*skip-weekends* skip-weekends)
+        (*enable-heuristic* enable-heuristic)
+        (*skip-weekends* (not disable-skip-weekends))
         (*today* (or (and today (parse-date today)) (get-universal-time))))
     (multiple-value-bind (end-state)
         (schedule-activities sim-string)
@@ -470,20 +470,19 @@
 #+nil
 (time
   (let ((*today* (parse-date "2020-03-30"))
-        (*ignore-preallocations* nil)
+        (*ignore-preallocations* t)
         (*enable-heuristic* t))
     (multiple-value-bind (end-state schedule)
-        (schedule-activities (uiop:read-file-string #P"test/known-scenario.txt"))
+        (schedule-activities (uiop:read-file-string #P"test/known-scenario-1.txt"))
       (declare (ignore end-state))
       (pprint-schedule schedule))))
 
 #+nil
 (time
   (let ((*today* (parse-date "2020-04-10"))
-        (*ignore-preallocations* nil)
-        (*enable-heuristic* nil))
+        (*ignore-preallocations* t)
+        (*enable-heuristic* t))
     (multiple-value-bind (end-state schedule)
         (schedule-activities (uiop:read-file-string #P"test/known-scenario-2.txt"))
       (declare (ignore end-state))
-      (pr end-state)
       (pprint-schedule schedule))))
