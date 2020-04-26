@@ -20,7 +20,9 @@
   ((:module "vendor"
     :serial t
     :components ((:file "pmdb")
+                 (:file "quickutils-package")
                  (:file "quickutils")
+                 (:file "utils-package")
                  (:file "utils")))
    (:file "package")
    (:module "src" :serial t
