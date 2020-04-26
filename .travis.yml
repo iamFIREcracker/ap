@@ -32,7 +32,10 @@ install:
     fi
 
 script:
-  - make test-ros
+  - |
+    if [ "$TRAVIS_OS_NAME" != "windows" ]; then
+      make test-ros
+    fi
   - make binary-ros
   - bin/ap --version
 
