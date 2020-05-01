@@ -1,0 +1,67 @@
+#!/usr/bin/env bash 
+
+set -eu
+
+FILE_PREFIX=$(mktemp "${TMPDIR-/tmp}/gantt.XXXXXX")
+
+function cleanup() {
+  rm $FILE_PREFIX*
+}
+trap "$(cleanup)" SIGINT SIGTERM
+
+#------------------------------------------------------------------------------
+
+# Input
+INPUT=$FILE_PREFIX.input
+cat - > $INPUT
+
+#------------------------------------------------------------------------------
+
+# PEOPLE
+PEOPLE=$FILE_PREFIX.people
+cat $INPUT | \
+  cut -d' ' -f 4 | \
+  sort -u > $PEOPLE
+
+#------------------------------------------------------------------------------
+
+# Palette
+PALETTE=$FILE_PREFIX.colors
+cat $PEOPLE | \
+  awk '{print "string eq " "\""$0"\"" " ? " NR%7 + 1 " : \\"}' > $PALETTE
+
+#------------------------------------------------------------------------------
+
+# Gnuplot
+GP=$FILE_PREFIX.gp
+cat <<EOF > $GP
+\$DATA << EOD
+$(cat $INPUT)
+EOD
+
+set xdata time
+timeformat = "%Y-%m-%d"
+set format x "%d %b"
+
+set yrange [:] reverse
+set xtics strptime("%d","2") nomirror rotate by 45 right offset 1,-1
+set mxtics 1
+set ytics nomirror offset -2,0
+set grid x y
+set border 3
+unset key
+set size ratio 0.5
+
+T(N) = timecolumn(N,timeformat)
+mapcolor(string) = ( \\
+$(cat $PALETTE)
+0)
+
+plot \$DATA using (T(2)):(\$0):(T(3)-T(2)):(0.0):(mapcolor(stringcolumn(4))):yticlabel(1) with vector nohead lw 20 lc variable, \\
+     \$DATA using (T(2)+(T(3)-T(2))/2) : (\$0) : 4 with labels
+EOF
+
+#------------------------------------------------------------------------------
+
+gnuplot $GP -persist
+cleanup
