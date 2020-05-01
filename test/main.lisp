@@ -113,3 +113,18 @@
 ;                                   :today "2020-04-24"
 ;                                   :ignore-claims t
 ;                                   :enable-heuristic t))))
+
+(1am:test ap/known-scenario-4/completion-day
+  (1am:is (= 10 (completion-day (uiop:read-file-string #P"test/known-scenario-4.txt")
+                                :today "2020-05-01"))))
+
+(1am:test ap/known-scenario-4/completion-day/enable-heuristic
+  (1am:is (= 10 (completion-day (uiop:read-file-string #P"test/known-scenario-4.txt")
+                                :today "2020-05-01"
+                                :enable-heuristic t))))
+
+; (1am:test ap/known-scenario-4/completion-day/ignore-claims/enable-heuristic
+;   (1am:is (= 10 (completion-day (uiop:read-file-string #P"test/known-scenario-4.txt")
+;                                 :today "2020-05-01"
+;                                 :ignore-claims t
+;                                 :enable-heuristic t))))
