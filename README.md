@@ -2,7 +2,7 @@
 
 THIS IS A WORK IN PROGRESS... USE AT YOUR OWN RISK!
 
-    > cat input.txt
+    > cat test/known-scenario-1.txt
     activity act-01 5
     activity act-02 3
     activity act-03 5
@@ -24,7 +24,7 @@ THIS IS A WORK IN PROGRESS... USE AT YOUR OWN RISK!
     person user-06 20 act-06
     person user-07 80
 
-    > bin/ap --today 2020-03-30 < input.txt
+    > bin/ap --today 2020-03-30 < test/known-scenario-1.txt
     act-04 2020-03-30 2020-04-02 user-04
     act-09 2020-03-30 2020-04-02 user-07
     act-05 2020-03-30 2020-04-06 user-05

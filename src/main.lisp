@@ -249,7 +249,7 @@
          :for complete-date = (aref complete-dates j)
          :always (>= been-busy-for complete-date))))
 
-(defun neighbors (costs activity-count state)
+(defun neighbors (costs calendars activity-count state)
   (let ((target-date (target-date state)))
     (with-slots (workers completed complete-dates) state
       (loop
