@@ -30,9 +30,9 @@
 
 (defun offset-is-weekend-p (offset)
   "Returns T if *TODAY* plus OFFSET days falls on a weekend"
-  (multiple-value-bind (sec min hr day mon yr dow dst-p tz)
+  (multiple-value-bind (sec min hr day month year dow dst-p tz)
       (decode-universal-time (offset-to-universal-time offset))
-    (declare (ignore sec min hr day mon yr dst-p tz))
+    (declare (ignore sec min hr day month year dst-p tz))
     (>= dow 5)))
 
 (defun offset-add-business-days (offset n)
