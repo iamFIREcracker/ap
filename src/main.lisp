@@ -75,6 +75,25 @@
     (declare (ignore sec min hr dow dst-p tz))
     (format nil "~d-~2,'0d-~2,'0d" yr mon day)))
 
+
+; Bits utils --------------------------------------------------------------------------------------
+
+(defun bit-set-p (j number)
+  "Returns T if the j-th bit of NUMBER, is set."
+  (= (logandc2 (ash 1 j) number) 0))
+
+(defun set-bit (j number)
+  "Sets j-th bit of NUMBER, and return the result."
+  (logior number (ash 1 j)))
+
+(defun all-bits-set (number)
+  (loop
+    :for j :from 0
+    :for mask = (ash 1 j)
+    :until (> mask number)
+    :when (bit-set-p j number)
+    :collect j))
+
 ; Input / parsing ---------------------------------------------------------------------------------
 
 (defun read-from-stream (s)
@@ -175,9 +194,7 @@
         :for j = (gethash activity-id activity-id-map)
         :unless i :do (error "Cannot find a person with name: ~a, when parsing ~a" person-id claim)
         :unless j :do (error "Cannot find an activity with name: ~a, when parsing ~a" activity-id claim)
-        :do (setf (aref already-working-on i) (logior
-                                                (aref already-working-on i)
-                                                (ash 1 j))
+        :do (setf (aref already-working-on i) (set-bit j (aref already-working-on i))
                   (aref already-been-busy-for i) (offset-add-business-days
                                                    (aref already-been-busy-for i)
                                                    (aref calendars i)
@@ -190,27 +207,13 @@
               :for j = (gethash dep-id activity-id-map)
               :unless j :do (error "Cannot find ~a's dependency: ~a" (activity-id activity) dep-id)
               :do (setf (aref dependencies i)
-                        (logior (aref dependencies i) (ash 1 j)))))
+                        (set-bit j (aref dependencies i)))))
       (make-simulation :activities (coerce activities 'vector)
                        :dependencies dependencies
                        :people (coerce people 'vector)
                        :calendars calendars
                        :already-working-on already-working-on
                        :already-been-busy-for already-been-busy-for))))
-
-; Bits --------------------------------------------------------------------------------------------
-
-(defun bit-set-p (j number)
-  "Returns T if the j-th bit of NUMBER, is set."
-  (= (logandc2 (ash 1 j) number) 0))
-
-(defun all-bits-set (number)
-  (loop
-    :for j :from 0
-    :for mask = (ash 1 j)
-    :until (> mask number)
-    :when (bit-set-p j number)
-    :collect j))
 
 ; Search ------------------------------------------------------------------------------------------
 
@@ -269,12 +272,12 @@
                              (not (bit-set-p j completed))
                              (dependencies-already-completed-p (dependencies cost) completed complete-dates been-busy-for))
                      :collecting (let* ((been-busy-for (offset-add-business-days been-busy-for c (days cost)))
-                                        (next-worker (make-worker :been-working-on (logior (been-working-on w) (ash 1 j))
+                                        (next-worker (make-worker :been-working-on (set-bit j (been-working-on w))
                                                                   :been-busy-for been-busy-for))
                                         (workers (change workers i next-worker))
                                         (complete-dates (change complete-dates j been-busy-for))
                                         (next-state (make-state :workers workers
-                                                                :completed (logior completed (ash 1 j))
+                                                                :completed (set-bit j completed)
                                                                 :complete-dates complete-dates))
                                         (next-target-date (target-date next-state)))
                                    (cons
