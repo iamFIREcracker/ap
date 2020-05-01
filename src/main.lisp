@@ -124,8 +124,7 @@
   people
   calendars
   already-working-on
-  already-been-busy-for
-  already-completed)
+  already-been-busy-for)
 
 (defun days-to-complete (person activity)
   (with-slots (allocation) person
@@ -152,8 +151,7 @@
     (let ((calendars (map-into (make-array (length people)) #'make-hash-table))
           (dependencies (make-array (length activities) :initial-element 0))
           (already-working-on (make-array (length people) :initial-element 0))
-          (already-been-busy-for (make-array (length people) :initial-element 0))
-          (already-completed 0))
+          (already-been-busy-for (make-array (length people) :initial-element 0)))
       (loop
         :for i :below (length people)
         :for person :in people
@@ -183,8 +181,7 @@
                   (aref already-been-busy-for i) (offset-add-business-days
                                                    (aref already-been-busy-for i)
                                                    (aref calendars i)
-                                                   (days-to-complete (nth i people) (nth j activities)))
-                  already-completed (logior already-completed (ash 1 j))))
+                                                   (days-to-complete (nth i people) (nth j activities)))))
       (loop
         :for i :below (length activities)
         :for activity :in activities
@@ -199,8 +196,7 @@
                        :people (coerce people 'vector)
                        :calendars calendars
                        :already-working-on already-working-on
-                       :already-been-busy-for already-been-busy-for
-                       :already-completed already-completed))))
+                       :already-been-busy-for already-been-busy-for))))
 
 ; Bits --------------------------------------------------------------------------------------------
 
@@ -352,6 +348,7 @@
 
 (defun schedule-activities (sim-string)
   (let* ((sim (parse-simulation sim-string))
+         (completed (reduce #'logior (simulation-already-working-on sim)))
          (workers (coerce (loop
                             :for been-working-on :across (simulation-already-working-on sim)
                             :for been-busy-for :across (simulation-already-been-busy-for sim)
@@ -373,7 +370,7 @@
                                  :do (setf (aref result j) been-busy-for))
                            :finally (return result)))
          (init-state (make-state :workers workers
-                                 :completed (simulation-already-completed sim)
+                                 :completed completed
                                  :complete-dates complete-dates)))
     (multiple-value-bind (end-state cost-so-far come-from)
         (a* init-state
