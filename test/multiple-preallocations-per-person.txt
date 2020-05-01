@@ -1,4 +1,0 @@
-activity act-01 5
-activity act-02 5
-person user-01 100 act-01 act-02
-person user-02 100

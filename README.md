@@ -16,13 +16,19 @@ THIS IS A WORK IN PROGRESS... USE AT YOUR OWN RISK!
     activity act-11 5
     activity act-12 5 act-03
     activity act-13 10
-    person user-01 80 act-01
-    person user-02 20 act-02
-    person user-03 60 act-03
-    person user-04 80 act-04
-    person user-05 60 act-05
-    person user-06 20 act-06
+    person user-01 80
+    person user-02 20
+    person user-03 60
+    person user-04 80
+    person user-05 60
+    person user-06 20
     person user-07 80
+    claim user-01 act-01
+    claim user-02 act-02
+    claim user-03 act-03
+    claim user-04 act-04
+    claim user-05 act-05
+    claim user-06 act-06
 
     > bin/ap --today 2020-03-30 < test/known-scenario-1.txt
     act-04 2020-03-30 2020-04-02 user-04
@@ -47,7 +53,7 @@ THIS IS A WORK IN PROGRESS... USE AT YOUR OWN RISK!
     activity act-02 5
     activity act-03 5 act-01 act-02
 
-Activities entries are prefixed with the 'activity' keyword, and they specify:
+Activity entries are prefixed with the 'activity' keyword, and they specify:
 
 - the activity name
 - the effort (in days) required to complete the activity
@@ -57,15 +63,22 @@ Activities entries are prefixed with the 'activity' keyword, and they specify:
 
     person user-01 90
     person user-02 50
-    person user-03 50 act-01
 
-Activities entries are prefixed with the 'person' keyword, and they specify:
+Person entries are prefixed with the 'person' keyword, and they specify:
 
 - the person name
 - their allocation to _this_ project, with the idea being that the smaller their
   allocation, the longer it's going to take for them to complete a given
   activity
-- an optional list of activities that the user is already working on
+
+### Claims
+
+    claim user-03 act-01
+
+Claim entries are prefixed with the 'claim' keyword, and they specify:
+
+- the person who has claimed..
+- the activity that was calimed
 
 ### Out of office
 

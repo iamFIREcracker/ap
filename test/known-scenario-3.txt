@@ -7,11 +7,19 @@ activity act-06 5
 activity act-07 1
 activity act-08 1
 activity act-09 1
-person user-01 80 act-01
-person user-02 80 act-02
-person user-03 80 act-03
-person user-04 80 act-04
-person user-05 80 act-05
-person user-06 50 act-07
-person user-07 50 act-08
-person user-08 50 act-09
+person user-01 80
+person user-02 80
+person user-03 80
+person user-04 80
+person user-05 80
+person user-06 50
+person user-07 50
+person user-08 50
+claim user-01 act-01
+claim user-02 act-02
+claim user-03 act-03
+claim user-04 act-04
+claim user-05 act-05
+claim user-06 act-07
+claim user-07 act-08
+claim user-08 act-09

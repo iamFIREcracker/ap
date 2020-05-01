@@ -1,7 +1,7 @@
 (in-package #:ap)
 
 (defvar *version* nil "Application version")
-(defvar *ignore-preallocations* nil "Ignore any person-activity pre-allocation")
+(defvar *ignore-claims* nil "Ignore any person-activity claim")
 (defvar *enable-heuristic* nil "Boolean to tell the planner to use or not heuristic")
 (defvar *person-productivity* 1 "Person productivity")
 (defvar *today* nil "First day of the simulation")
@@ -100,12 +100,17 @@
                  :effort (parse-float (third parts))
                  :depends-on (nthcdr 3 parts)))
 
-(defstruct person id allocation working-on)
+(defstruct person id allocation)
 
 (defun parse-person (s &aux (parts (split-sequence:split-sequence #\Space s)))
   (make-person :id (second parts)
-               :allocation (parse-percentage (third parts))
-               :working-on (nthcdr 3 parts)))
+               :allocation (parse-percentage (third parts))))
+
+(defstruct claim person activity)
+
+(defun parse-claim (s &aux (parts (split-sequence:split-sequence #\Space s)))
+  (make-claim :person (second parts)
+            :activity (third parts)))
 
 (defstruct ooo person date)
 
@@ -132,12 +137,15 @@
         (activity-id-map (make-hash-table :test 'equal))
         activities
         people
+        claims
         ooo-entries)
     (loop
       :for line :in (split-sequence:split-sequence #\Newline string)
       :until (zerop (length line))
       :when (string= (subseq line 0 8) "activity") :do (push (parse-activity line) activities)
       :when (string= (subseq line 0 6) "person") :do (push (parse-person line) people)
+      :when (and (not *ignore-claims*)
+                 (string= (subseq line 0 5) "claim")) :do (push (parse-claim line) claims)
       :when (string= (subseq line 0 13) "out-of-office") :do (push (parse-ooo line) ooo-entries))
     (setf activities (reverse activities)
           people (reverse people))
@@ -154,13 +162,30 @@
         :for ooo :in ooo-entries
         :for person-id = (ooo-person ooo)
         :for i = (gethash person-id person-id-map)
-        :unless i :do (error "Cannot find a person with name: ~a" person-id)
+        :unless i :do (error "Cannot find a person with name: ~a, when parsing ~a" person-id ooo)
         :do (let ((person-calendar (aref calendars i)))
               (setf (gethash (ooo-date ooo) person-calendar) T)))
       (loop
         :for i :below (length activities)
         :for activity :in activities
         :do (setf (gethash (activity-id activity) activity-id-map) i))
+      (loop
+        :for claim :in claims
+        :for person-id = (claim-person claim)
+        :for i = (gethash person-id person-id-map)
+        :for person = (nth i people)
+        :for activity-id = (claim-activity claim)
+        :for j = (gethash activity-id activity-id-map)
+        :unless i :do (error "Cannot find a person with name: ~a, when parsing ~a" person-id claim)
+        :unless j :do (error "Cannot find an activity with name: ~a, when parsing ~a" activity-id claim)
+        :do (setf (aref already-working-on i) (logior
+                                                (aref already-working-on i)
+                                                (ash 1 j))
+                  (aref already-been-busy-for i) (offset-add-business-days
+                                                   (aref already-been-busy-for i)
+                                                   (aref calendars i)
+                                                   (days-to-complete person (nth j activities)))
+                  already-completed (logior already-completed (ash 1 j))))
       (loop
         :for i :below (length activities)
         :for activity :in activities
@@ -170,22 +195,6 @@
               :unless j :do (error "Cannot find ~a's dependency: ~a" (activity-id activity) dep-id)
               :do (setf (aref dependencies i)
                         (logior (aref dependencies i) (ash 1 j)))))
-      (unless *ignore-preallocations*
-        (loop
-          :for i :below (length people)
-          :for person :in people
-          :for c :across calendars
-          :do (loop
-                :for act-id :in (person-working-on person)
-                :for j = (gethash act-id activity-id-map)
-                :do (setf (aref already-working-on i) (logior
-                                                        (aref already-working-on i)
-                                                        (ash 1 j))
-                          (aref already-been-busy-for i) (offset-add-business-days
-                                                           (aref already-been-busy-for i)
-                                                           c
-                                                           (days-to-complete person (nth j activities)))
-                          already-completed (logior already-completed (ash 1 j))))))
       (make-simulation :activities (coerce activities 'vector)
                        :dependencies dependencies
                        :people (coerce people 'vector)
@@ -411,9 +420,9 @@
          :description "print the version and exit"
          :short #\v
          :long "version")
-  (:name :ignore-preallocations
+  (:name :ignore-claims
          :description "ignore any pre-allocated activity"
-         :long "ignore-preallocations")
+         :long "ignore-claims")
   (:name :enable-heuristic
          :description "enable heuristic (warning: ap might converge to a sub-optimal solution)"
          :long "enable-heuristic")
@@ -473,8 +482,8 @@
         (format T "~a~%" *version*)
         (error 'exit)))
     ; optional ones
-    (if (getf options :ignore-preallocations)
-      (setf *ignore-preallocations* T))
+    (if (getf options :ignore-claims)
+      (setf *ignore-claims* T))
     (if (getf options :enable-heuristic)
       (setf *enable-heuristic* T))
     (if (getf options :disable-skip-weekends)
@@ -484,9 +493,9 @@
 
 ; API ---------------------------------------------------------------------------------------------
 
-(defun completion-day (sim-string &key today ignore-preallocations enable-heuristic
+(defun completion-day (sim-string &key today ignore-claims enable-heuristic
                                   disable-skip-weekends)
-  (let ((*ignore-preallocations* ignore-preallocations)
+  (let ((*ignore-claims* ignore-claims)
         (*enable-heuristic* enable-heuristic)
         (*skip-weekends* (not disable-skip-weekends))
         (*today* (or (and today (parse-date today)) (get-universal-time))))
@@ -511,7 +520,7 @@
 #+nil
 (time
   (let ((*today* (get-universal-time-start-of-day))
-        (*ignore-preallocations* nil)
+        (*ignore-claims* nil)
         (*enable-heuristic* t))
     (multiple-value-bind (end-state schedule)
         (schedule-activities (uiop:read-file-string #P"test/out-of-office.txt"))
@@ -521,7 +530,7 @@
 #+nil
 (time
   (let ((*today* (parse-date "2020-03-30"))
-        (*ignore-preallocations* nil)
+        (*ignore-claims* t)
         (*enable-heuristic* t))
     (multiple-value-bind (end-state schedule)
         (schedule-activities (uiop:read-file-string #P"test/known-scenario-1.txt"))
@@ -531,7 +540,7 @@
 #+nil
 (time
   (let ((*today* (parse-date "2020-04-10"))
-        (*ignore-preallocations* t)
+        (*ignore-claims* t)
         (*enable-heuristic* t))
     (multiple-value-bind (end-state schedule)
         (schedule-activities (uiop:read-file-string #P"test/known-scenario-2.txt"))

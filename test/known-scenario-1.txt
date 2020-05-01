@@ -11,10 +11,16 @@ activity act-10 5
 activity act-11 5
 activity act-12 5 act-03
 activity act-13 10
-person user-01 80 act-01
-person user-02 20 act-02
-person user-03 60 act-03
-person user-04 80 act-04
-person user-05 60 act-05
-person user-06 20 act-06
+person user-01 80
+person user-02 20
+person user-03 60
+person user-04 80
+person user-05 60
+person user-06 20
 person user-07 80
+claim user-01 act-01
+claim user-02 act-02
+claim user-03 act-03
+claim user-04 act-04
+claim user-05 act-05
+claim user-06 act-06
