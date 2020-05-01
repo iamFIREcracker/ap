@@ -420,9 +420,6 @@
          :description "print the version and exit"
          :short #\v
          :long "version")
-  (:name :ignore-claims
-         :description "ignore any pre-allocated activity"
-         :long "ignore-claims")
   (:name :enable-heuristic
          :description "enable heuristic (warning: ap might converge to a sub-optimal solution)"
          :long "enable-heuristic")
@@ -482,8 +479,6 @@
         (format T "~a~%" *version*)
         (error 'exit)))
     ; optional ones
-    (if (getf options :ignore-claims)
-      (setf *ignore-claims* T))
     (if (getf options :enable-heuristic)
       (setf *enable-heuristic* T))
     (if (getf options :disable-skip-weekends)
