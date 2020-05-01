@@ -173,7 +173,6 @@
         :for claim :in claims
         :for person-id = (claim-person claim)
         :for i = (gethash person-id person-id-map)
-        :for person = (nth i people)
         :for activity-id = (claim-activity claim)
         :for j = (gethash activity-id activity-id-map)
         :unless i :do (error "Cannot find a person with name: ~a, when parsing ~a" person-id claim)
@@ -184,7 +183,7 @@
                   (aref already-been-busy-for i) (offset-add-business-days
                                                    (aref already-been-busy-for i)
                                                    (aref calendars i)
-                                                   (days-to-complete person (nth j activities)))
+                                                   (days-to-complete (nth i people) (nth j activities)))
                   already-completed (logior already-completed (ash 1 j))))
       (loop
         :for i :below (length activities)
@@ -539,5 +538,25 @@
         (*enable-heuristic* t))
     (multiple-value-bind (end-state schedule)
         (schedule-activities (uiop:read-file-string #P"test/known-scenario-2.txt"))
+      (declare (ignore end-state))
+      (pprint-schedule schedule))))
+
+#+nil
+(time
+  (let ((*today* (parse-date "2020-04-24"))
+        (*ignore-claims* nil)
+        (*enable-heuristic* nil))
+    (multiple-value-bind (end-state schedule)
+        (schedule-activities (uiop:read-file-string #P"test/known-scenario-3.txt"))
+      (declare (ignore end-state))
+      (pprint-schedule schedule))))
+
+#+nil
+(time
+  (let ((*today* (parse-date "2020-05-01"))
+        (*ignore-claims* nil)
+        (*enable-heuristic* nil))
+    (multiple-value-bind (end-state schedule)
+        (schedule-activities (uiop:read-file-string #P"test/known-scenario-4.txt"))
       (declare (ignore end-state))
       (pprint-schedule schedule))))
