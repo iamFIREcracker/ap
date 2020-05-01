@@ -9,6 +9,15 @@
 
 ; Date utils --------------------------------------------------------------------------------------
 
+(defun get-universal-time-start-of-day ()
+  "Similar to GET-UNIVERSAL-TIME, except with seconds, minutes, hour and timezone slots,
+  all set to 0"
+  (destructuring-bind (second minute hour timezone) (list 0 0 0 0)
+    (multiple-value-bind (sec min hr day month year)
+        (decode-universal-time (get-universal-time))
+      (declare (ignore sec min hr))
+      (encode-universal-time second minute hour day month year timezone))))
+
 (defun parse-date (str)
   "Parses a YYYY-MM-DD string, and returns its universal-time value.
 
@@ -35,7 +44,14 @@
     (declare (ignore sec min hr day month year dst-p tz))
     (>= dow 5)))
 
-(defun offset-add-business-days (offset n)
+(defun offset-is-ooo-p (offset ooo-calendar &aux (time (offset-to-universal-time offset)))
+  "Returns T if OOO-CALENDAR contains an entry for *TODAY* plus OFFSET days."
+  (multiple-value-bind (value existsp)
+      (gethash time ooo-calendar)
+    (declare (ignore value))
+    existsp))
+
+(defun offset-add-business-days (offset calendar n)
   "Adds N business days to OFFSET.
 
   If OFFSET points to a Sunday, and N is 0, the function will return next Monday's offset.
@@ -43,16 +59,14 @@
   If N is negative, the function will ERROR out."
   (when (< n 0)
     (error "The number of business days to add, N, cannot be negative: ~a" n))
-  (if (not *skip-weekends*)
-    (+ offset n)
-    (recursively ((offset offset)
-                  (n n))
-      (if (offset-is-weekend-p offset)
-        (recur (1+ offset) n)
-        (if (zerop n)
-          offset
-          (let ((inc (min n 1)))
-            (recur (+ offset inc) (- n inc))))))))
+  (recursively ((offset offset)
+                (n n))
+    (cond ((and *skip-weekends* (offset-is-weekend-p offset) (recur (1+ offset) n)))
+          ((offset-is-ooo-p offset calendar) (recur (1+ offset) n))
+          (T (if (zerop n)
+               offset
+               (let ((inc (min n 1)))
+                 (recur (+ offset inc) (- n inc))))))))
 
 (defun offset-to-date (offset)
   "Converts an offset to a YYYY-MM-DD string."
@@ -93,10 +107,17 @@
                :allocation (parse-percentage (third parts))
                :working-on (nthcdr 3 parts)))
 
+(defstruct ooo person date)
+
+(defun parse-ooo (s &aux (parts (split-sequence:split-sequence #\Space s)))
+  (make-ooo :person (second parts)
+            :date (parse-date (third parts))))
+
 (defstruct simulation
   activities
   dependencies
   people
+  calendars
   already-working-on
   already-been-busy-for
   already-completed)
@@ -107,20 +128,35 @@
       (/ effort allocation *person-productivity*))))
 
 (defun parse-simulation (string)
-  (let ((activity-id-map (make-hash-table :test 'equal))
+  (let ((person-id-map (make-hash-table :test 'equal))
+        (activity-id-map (make-hash-table :test 'equal))
         activities
-        people)
+        people
+        ooo-entries)
     (loop
       :for line :in (split-sequence:split-sequence #\Newline string)
       :until (zerop (length line))
       :when (string= (subseq line 0 8) "activity") :do (push (parse-activity line) activities)
-      :when (string= (subseq line 0 6) "person") :do (push (parse-person line) people))
+      :when (string= (subseq line 0 6) "person") :do (push (parse-person line) people)
+      :when (string= (subseq line 0 13) "out-of-office") :do (push (parse-ooo line) ooo-entries))
     (setf activities (reverse activities)
           people (reverse people))
-    (let ((dependencies (make-array (length activities) :initial-element 0))
+    (let ((calendars (map-into (make-array (length people)) #'make-hash-table))
+          (dependencies (make-array (length activities) :initial-element 0))
           (already-working-on (make-array (length people) :initial-element 0))
           (already-been-busy-for (make-array (length people) :initial-element 0))
           (already-completed 0))
+      (loop
+        :for i :below (length people)
+        :for person :in people
+        :do (setf (gethash (person-id person) person-id-map) i))
+      (loop
+        :for ooo :in ooo-entries
+        :for person-id = (ooo-person ooo)
+        :for i = (gethash person-id person-id-map)
+        :unless i :do (error "Cannot find a person with name: ~a" person-id)
+        :do (let ((person-calendar (aref calendars i)))
+              (setf (gethash (ooo-date ooo) person-calendar) T)))
       (loop
         :for i :below (length activities)
         :for activity :in activities
@@ -138,6 +174,7 @@
         (loop
           :for i :below (length people)
           :for person :in people
+          :for c :across calendars
           :do (loop
                 :for act-id :in (person-working-on person)
                 :for j = (gethash act-id activity-id-map)
@@ -146,11 +183,13 @@
                                                         (ash 1 j))
                           (aref already-been-busy-for i) (offset-add-business-days
                                                            (aref already-been-busy-for i)
+                                                           c
                                                            (days-to-complete person (nth j activities)))
                           already-completed (logior already-completed (ash 1 j))))))
       (make-simulation :activities (coerce activities 'vector)
                        :dependencies dependencies
                        :people (coerce people 'vector)
+                       :calendars calendars
                        :already-working-on already-working-on
                        :already-been-busy-for already-been-busy-for
                        :already-completed already-completed))))
@@ -215,6 +254,7 @@
     (with-slots (workers completed complete-dates) state
       (loop
         :for i :below (length workers)
+        :for c :across calendars
         :for w :across workers
         :for been-busy-for = (been-busy-for w)
         :appending (loop
@@ -224,7 +264,7 @@
                              cost
                              (not (bit-set-p j completed))
                              (dependencies-already-completed-p (dependencies cost) completed complete-dates been-busy-for))
-                     :collecting (let* ((been-busy-for (offset-add-business-days been-busy-for (days cost)))
+                     :collecting (let* ((been-busy-for (offset-add-business-days been-busy-for c (days cost)))
                                         (next-worker (make-worker :been-working-on (logior (been-working-on w) (ash 1 j))
                                                                   :been-busy-for been-busy-for))
                                         (workers (change workers i next-worker))
@@ -311,6 +351,7 @@
                                                   :been-busy-for been-busy-for))
                           'vector))
          (worker-count (length workers))
+         (calendars (simulation-calendars sim))
          (activity-count (length (simulation-activities sim)))
          (all-activities (1- (ash 1 activity-count)))
          (costs (precompute-costs sim))
@@ -330,7 +371,7 @@
         (a* init-state
             :init-cost (target-date init-state)
             :goalp (lambda (state) (= (completed state) all-activities))
-            :neighbors (partial-1 #'neighbors costs activity-count)
+            :neighbors (partial-1 #'neighbors costs calendars activity-count)
             :heuristic (and *enable-heuristic* (partial-1 #'heuristic (simulation-people sim)
                                                           (simulation-activities sim)
                                                           worker-count))
@@ -469,8 +510,18 @@
 
 #+nil
 (time
+  (let ((*today* (get-universal-time-start-of-day))
+        (*ignore-preallocations* nil)
+        (*enable-heuristic* t))
+    (multiple-value-bind (end-state schedule)
+        (schedule-activities (uiop:read-file-string #P"test/out-of-office.txt"))
+      (declare (ignore end-state))
+      (pprint-schedule schedule))))
+
+#+nil
+(time
   (let ((*today* (parse-date "2020-03-30"))
-        (*ignore-preallocations* t)
+        (*ignore-preallocations* nil)
         (*enable-heuristic* t))
     (multiple-value-bind (end-state schedule)
         (schedule-activities (uiop:read-file-string #P"test/known-scenario-1.txt"))
