@@ -15,12 +15,12 @@
   => (parse-date \"1900-01-01\")
   0
 
-  => (parse-date 1986-11-28)
+  => (parse-date \"1986-11-28\")
   2742508800"
   (destructuring-bind (second minute hour timezone) (list 0 0 0 0)
-    (destructuring-bind (year month date)
+    (destructuring-bind (year month day)
         (mapcar #'parse-integer (split-sequence:split-sequence #\- str))
-      (encode-universal-time second minute hour date month year timezone))))
+      (encode-universal-time second minute hour day month year timezone))))
 
 (defun offset-to-universal-time (offset)
   "Adds OFFSET days to *TODAY*, and return its universal time representation.
