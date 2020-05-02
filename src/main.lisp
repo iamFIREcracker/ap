@@ -6,6 +6,7 @@
 (defvar *person-productivity* 1 "Person productivity")
 (defvar *today* nil "First day of the simulation")
 (defvar *skip-weekends* t "Skip weekends when calculating days of effort")
+(defvar *dfs* nil "Use depth-first-search (instead of A*) to find optimal solution")
 
 ; Date utils --------------------------------------------------------------------------------------
 
@@ -297,9 +298,30 @@
           :key #'activity-effort))
 
 ; (defun heuristic (people activities worker-count state)
+;   "Works with standard tests (duh) // ignore claims and it won't help much
+;   Does NOT work with lots-of-work"
+;   (declare (ignore people activities worker-count state))
+;   0)
+
+(defun heuristic (people activities worker-count state)
+  "Works with standard tests // ignore claims and it won't help much
+  Works with lots-of-work"
+  (declare (ignore people worker-count))
+  (let* ((effort-remaining (effort-remaining activities state)))
+    effort-remaining))
+
+; (defun heuristic (people activities worker-count state)
+;   "Works with standard tests // ignore claims and it won't help much
+;   Does NOT work with lots-of-work"
+;   (declare (ignore people))
+;   (let* ((effort-remaining (effort-remaining activities state)))
+;     (/ effort-remaining worker-count)))
+
+; (defun heuristic (people activities worker-count state)
+;   "Works with standard tests // ignore claims and it won't help much
+;   Does NOT work with lots-of-work"
 ;   (let* ((target-date (target-date state))
 ;          (effort-remaining (effort-remaining activities state)))
-;     (prl target-date effort-remaining (map 'vector #'been-busy-for (workers state)))
 ;     (loop
 ;       :while (plusp effort-remaining)
 ;       :for p :across people
@@ -308,20 +330,33 @@
 ;       :for effort = (* remaining (person-allocation p) *person-productivity*)
 ;       :do (setf effort (min effort effort-remaining)
 ;                 effort-remaining (- effort-remaining effort)))
-;     (pr effort-remaining)
-;     (pr (/ effort-remaining worker-count))
-;     (break)
 ;     (/ effort-remaining worker-count)))
 
 ; (defun heuristic (people activities worker-count state)
-;   (declare (ignore people worker-count))
-;   (let* ((effort-remaining (effort-remaining activities state)))
-;     effort-remaining))
+;   "Does not work with standard tests
+;   Does NOT work with lots-of-work"
+;   (declare (ignore people activities))
+;   (let* ((target-date (target-date state))
+;          (avg
+;            (/
+;              (loop
+;                :for w :across (workers state)
+;                :for been-busy-for = (been-busy-for w)
+;                :summing (- been-busy-for target-date))
+;              worker-count)))
+;    avg))
 
-(defun heuristic (people activities worker-count state)
-  (declare (ignore people))
-  (let* ((effort-remaining (effort-remaining activities state)))
-    (/ effort-remaining worker-count)))
+; (defun heuristic (people activities worker-count state)
+;   "Works with standard tests // ignore claims and it won't help much
+;   Does NOT work with lots-of-work"
+;   (declare (ignore people activities worker-count))
+;   (let* ((target-date (target-date state))
+;          (piu-scarico
+;            (loop
+;              :for w :across (workers state)
+;              :for been-busy-for = (been-busy-for w)
+;              :minimizing been-busy-for)))
+;     (- target-date piu-scarico)))
 
 ; Output ------------------------------------------------------------------------------------------
 
@@ -375,20 +410,31 @@
          (init-state (make-state :workers workers
                                  :completed completed
                                  :complete-dates complete-dates)))
-    (multiple-value-bind (end-state cost-so-far come-from)
-        (a* init-state
-            :init-cost (target-date init-state)
-            :goalp (lambda (state) (= (completed state) all-activities))
-            :neighbors (partial-1 #'neighbors costs calendars activity-count)
-            :heuristic (and *enable-heuristic* (partial-1 #'heuristic (simulation-people sim)
-                                                          (simulation-activities sim)
-                                                          worker-count))
-            :test 'equalp)
-      (declare (ignore cost-so-far))
-      (when end-state
-        (values
-          end-state
-          (create-shedule sim (search-backtrack come-from end-state)))))))
+    (if *dfs*
+      (multiple-value-bind (end-state end-state-cost end-state-path)
+          (dfs init-state
+              :init-cost (target-date init-state)
+              :goalp (lambda (state) (= (completed state) all-activities))
+              :neighbors (partial-1 #'neighbors costs calendars activity-count))
+        (declare (ignore end-state-cost))
+        (when end-state
+          (values
+            end-state
+            (create-shedule sim end-state-path))))
+      (multiple-value-bind (end-state end-state-cost end-state-path)
+          (a* init-state
+              :init-cost (target-date init-state)
+              :goalp (lambda (state) (= (completed state) all-activities))
+              :neighbors (partial-1 #'neighbors costs calendars activity-count)
+              :heuristic (and *enable-heuristic* (partial-1 #'heuristic (simulation-people sim)
+                                                            (simulation-activities sim)
+                                                            worker-count))
+              :test 'equalp)
+        (declare (ignore end-state-cost))
+        (when end-state
+          (values
+            end-state
+            (create-shedule sim end-state-path)))))))
 
 (defun sort-schedule(schedule)
     (sort
@@ -434,7 +480,10 @@
          :meta-var "PROD")
   (:name :disable-skip-weekends
          :description "Don't skip weekends when calculating actual days of efforts."
-         :long "disable-skip-weekends"))
+         :long "disable-skip-weekends")
+  (:name :dfs
+         :description "Use depth-first-search (instead of A*) to find the optimal schedule"
+         :long "dfs"))
 
 (define-condition exit (error)
   ((code
@@ -483,7 +532,8 @@
     (if (getf options :disable-skip-weekends)
       (setf *skip-weekends* nil))
     (setf *today* (or (getf options :today) (get-universal-time)))
-    (setf *person-productivity* (or (getf options :productivity) 1))))
+    (setf *person-productivity* (or (getf options :productivity) 1))
+    (setf *dfs* (getf options :dfs))))
 
 ; API ---------------------------------------------------------------------------------------------
 

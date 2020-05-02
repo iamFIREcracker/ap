@@ -7,8 +7,8 @@
 (in-package "AP.UTILS")
 
 (when (boundp '*utilities*)
-  (setf *utilities* (union *utilities* '(:A* :HASH-TABLE-INSERT :MAXIMIZATION :PARTIAL-1
-                                         :RECURSIVELY :RECUR :SEARCH-BACKTRACK))))
+  (setf *utilities* (union *utilities* '(:DFS :A* :HASH-TABLE-INSERT :MAXIMIZATION :PARTIAL-1
+                                         :RECURSIVELY :RECUR))))
 
 (defun make-hq ()
   "Creates an heap queue."
@@ -82,24 +82,53 @@
       `(lambda (,more-arg)
           (funcall ,fn ,@actual-args)))))
 
+(defun dfs (init-state &key (init-cost 0) goal-state goalp neighbors
+                       (test 'eql))
+  (when goal-state
+    (setf goalp (partial-1 test goal-state)))
+  (let (best-state best-state-cost best-state-path)
+    (recursively ((state init-state)
+                  (state-cost init-cost)
+                  (state-path (list init-state)))
+      (if (funcall goalp state)
+        (when (or (not best-state-cost) (< state-cost best-state-cost))
+          (setf best-state state
+                best-state-cost state-cost
+                best-state-path state-path)
+          (format t "best: ~a~&" best-state-cost))
+        (loop
+          :with nn = (funcall neighbors state)
+          :for (next-state . cost) :in (sort nn #'< :key #'cdr)
+          :for next-state-cost = (+ state-cost cost)
+          :when (or (not best-state-cost) (< next-state-cost best-state-cost))
+          :do (recur next-state next-state-cost (cons next-state state-path)))))
+    (values
+      best-state
+      best-state-cost
+        (reverse best-state-path))))
+
+(defun search-backtrack (come-from curr)
+  (nreverse (recursively ((curr curr))
+              (when curr
+                (cons curr (recur (gethash curr come-from)))))))
+
 (defun a* (init-state &key (init-cost 0) goal-state goalp neighbors
                       heuristic (test 'eql)
                       &aux (cost-so-far (make-hash-table :test test))
                       (come-from (make-hash-table :test test)))
-  (when goal-state
-    (setf goalp (partial-1 test goal-state)))
-  (unless heuristic
-    (setf heuristic (constantly 0)))
+  (when goal-state (setf goalp (partial-1 test goal-state)))
+  (unless heuristic (setf heuristic (constantly 0)))
   (flet ((calc-priority (state-cost state)
            (+ state-cost (funcall heuristic state))))
-    (hash-table-insert cost-so-far init-state init-cost)
-    (values
+    (let (best-state)
       (loop
         :with frontier = (make-hq)
-        :initially (hq-insert frontier (cons init-state init-cost) (calc-priority init-cost init-state))
+        :initially (progn
+                     (hash-table-insert cost-so-far init-state init-cost)
+                     (hq-insert frontier (cons init-state init-cost) (calc-priority init-cost init-state)))
         :until (hq-empty-p frontier)
         :for (state . state-cost) = (hq-pop frontier)
-        :when (funcall goalp state) :return state
+        :when (funcall goalp state) :return (setf best-state state)
         :do (when (= state-cost (gethash state cost-so-far))
               (loop
                 :for (next-state . cost) :in (funcall neighbors state)
@@ -108,9 +137,13 @@
                       (when (or (not present-p) (< next-cost existing-cost))
                         (hash-table-insert cost-so-far next-state next-cost)
                         (hash-table-insert come-from next-state state)
-                        (hq-insert frontier (cons next-state next-cost) (calc-priority next-cost next-state)))))))
-      cost-so-far
-      come-from)))
+                        (hq-insert frontier (cons next-state next-cost) (calc-priority
+                                                                          next-cost
+                                                                          next-state)))))))
+      (values
+        best-state
+        (gethash best-state cost-so-far)
+        (search-backtrack come-from best-state)))))
 
 (defun hash-table-insert (ht key value) ;; XXX this cannot be defined as macro, somehow..
   (setf (gethash key ht) value))
@@ -125,10 +158,5 @@
     :for v = (funcall key e)
     :maximizing v))
 
-(defun search-backtrack (come-from curr)
-  (nreverse (recursively ((curr curr))
-              (when curr
-                (cons curr (recur (gethash curr come-from)))))))
-
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (export '(a* hash-table-insert maximization partial-1 recursively recur search-backtrack)))
+  (export '(dfs a* hash-table-insert maximization partial-1 recursively recur)))
