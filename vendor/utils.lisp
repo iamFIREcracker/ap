@@ -83,10 +83,10 @@
           (funcall ,fn ,@actual-args)))))
 
 (defun dfs (init-state &key (init-cost 0) goal-state goalp neighbors
-                       (test 'eql))
+                       (test 'eql) (max-iterations 10000))
   (when goal-state
     (setf goalp (partial-1 test goal-state)))
-  (let (best-state best-state-cost best-state-path)
+  (let (best-state best-state-cost best-state-path (i 0))
     (recursively ((state init-state)
                   (state-cost init-cost)
                   (state-path (list init-state)))
@@ -94,14 +94,15 @@
         (when (or (not best-state-cost) (< state-cost best-state-cost))
           (setf best-state state
                 best-state-cost state-cost
-                best-state-path state-path)
-          (format t "best: ~a~&" best-state-cost))
-        (loop
-          :with nn = (funcall neighbors state)
-          :for (next-state . cost) :in (sort nn #'< :key #'cdr)
-          :for next-state-cost = (+ state-cost cost)
-          :when (or (not best-state-cost) (< next-state-cost best-state-cost))
-          :do (recur next-state next-state-cost (cons next-state state-path)))))
+                best-state-path state-path))
+        (when (< i max-iterations)
+          (incf i)
+          (loop
+            :with nn = (funcall neighbors state)
+            :for (next-state . cost) :in (sort nn #'< :key #'cdr)
+            :for next-state-cost = (+ state-cost cost)
+            :when (or (not best-state-cost) (< next-state-cost best-state-cost))
+            :do (recur next-state next-state-cost (cons next-state state-path))))))
     (values
       best-state
       best-state-cost

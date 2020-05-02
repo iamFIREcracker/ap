@@ -82,6 +82,12 @@
 ;                                    :ignore-claims t
 ;                                    :enable-heuristic t))))
 
+; (1am:test ap/known-scenario-1/completion-day/ignore-claims/dfs
+;   (1am:is (= 22.25 (completion-day (uiop:read-file-string #P"test/known-scenario-1.txt")
+;                                    :today "2020-03-30"
+;                                    :ignore-claims t
+;                                    :dfs t))))
+
 
 (1am:test ap/known-scenario-2/completion-day
   (1am:is (= 21 (completion-day (uiop:read-file-string #P"test/known-scenario-2.txt")
@@ -93,10 +99,16 @@
                                 :enable-heuristic t))))
 
 ; (1am:test ap/known-scenario-2/completion-day/ignore-claims/enable-heuristic
-;   (1am:is (= 15 (completion-day (uiop:read-file-string #P"test/known-scenario-2.txt")
-;                                 :today "2020-04-10"
-;                                 :ignore-claims t
-;                                 :enable-heuristic t))))
+;   (1am:is (= 19.75 (completion-day (uiop:read-file-string #P"test/known-scenario-2.txt")
+;                                    :today "2020-04-10"
+;                                    :ignore-claims t
+;                                    :enable-heuristic t))))
+
+(1am:test ap/known-scenario-2/completion-day/ignore-claims/dfs
+  (1am:is (= 19.75 (completion-day (uiop:read-file-string #P"test/known-scenario-2.txt")
+                                   :today "2020-04-10"
+                                   :ignore-claims t
+                                   :dfs t))))
 
 
 (1am:test ap/known-scenario-3/completion-day
@@ -114,6 +126,13 @@
 ;                                   :ignore-claims t
 ;                                   :enable-heuristic t))))
 
+(1am:test ap/known-scenario-3/completion-day/ignore-claims/dfs
+  (1am:is (= 11.5 (completion-day (uiop:read-file-string #P"test/known-scenario-3.txt")
+                                  :today "2020-04-24"
+                                  :ignore-claims t
+                                  :dfs t))))
+
+
 (1am:test ap/known-scenario-4/completion-day
   (1am:is (= 10 (completion-day (uiop:read-file-string #P"test/known-scenario-4.txt")
                                 :today "2020-05-01"))))
@@ -128,3 +147,9 @@
 ;                                 :today "2020-05-01"
 ;                                 :ignore-claims t
 ;                                 :enable-heuristic t))))
+
+; (1am:test ap/known-scenario-4/completion-day/ignore-claims/dfs
+;   (1am:is (= 10 (completion-day (uiop:read-file-string #P"test/known-scenario-4.txt")
+;                                 :today "2020-05-01"
+;                                 :ignore-claims t
+;                                 :dfs t))))

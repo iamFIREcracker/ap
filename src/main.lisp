@@ -538,11 +538,12 @@
 ; API ---------------------------------------------------------------------------------------------
 
 (defun completion-day (sim-string &key today ignore-claims enable-heuristic
-                                  disable-skip-weekends)
+                                  disable-skip-weekends dfs)
   (let ((*ignore-claims* ignore-claims)
         (*enable-heuristic* enable-heuristic)
         (*skip-weekends* (not disable-skip-weekends))
-        (*today* (or (and today (parse-date today)) (get-universal-time))))
+        (*today* (or (and today (parse-date today)) (get-universal-time)))
+        (*dfs* dfs))
     (multiple-value-bind (end-state)
         (schedule-activities sim-string)
       (target-date end-state))))
