@@ -83,7 +83,7 @@
           (funcall ,fn ,@actual-args)))))
 
 (defun dfs (init-state &key (init-cost 0) goal-state goalp neighbors
-                       (test 'eql) (max-iterations 10000))
+                       (test 'eql) (max-iterations 50000))
   (when goal-state
     (setf goalp (partial-1 test goal-state)))
   (let (best-state best-state-cost best-state-path (i 0))
