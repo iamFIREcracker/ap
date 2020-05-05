@@ -2,7 +2,7 @@
   :description "Matteo's resource planner"
   :author "Matteo Landi <matteo@matteolandi.net>"
   :license  "MIT"
-  :version "0.0.2"
+  :version "0.0.3"
   :depends-on (
                #:pileup
                #:split-sequence
@@ -33,7 +33,7 @@
   :description "Matteo's resource planner"
   :author "Matteo Landi <matteo@matteolandi.net>"
   :license  "MIT"
-  :version "0.0.2"
+  :version "0.0.3"
   :depends-on (
                #:ap
                #:1am
