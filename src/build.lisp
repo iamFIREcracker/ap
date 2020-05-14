@@ -20,6 +20,7 @@
                        (format NIL "~a-r~a" base-version pending))))
 
 (setf deploy:*status-output* nil)
+(pushnew :deploy-console *features*)
 
 (let ((deploy:*status-output* t))
   (asdf:make :ap :force t))
