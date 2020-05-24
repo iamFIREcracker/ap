@@ -130,7 +130,7 @@
 
 (defun parse-claim (s &aux (parts (split-sequence:split-sequence #\Space s)))
   (make-claim :person (second parts)
-            :activity (third parts)))
+              :activity (third parts)))
 
 (defstruct ooo person date)
 
@@ -371,9 +371,9 @@
                     :test 'equalp)
               (multiple-value-bind (end-state end-state-cost end-state-path)
                   (dfs init-state
-                      :init-cost (target-date init-state)
-                      :goalp (lambda (state) (= (completed state) all-activities))
-                      :neighbors (partial-1 #'neighbors costs calendars activity-count))
+                       :init-cost (target-date init-state)
+                       :goalp (lambda (state) (= (completed state) all-activities))
+                       :neighbors (partial-1 #'neighbors costs calendars activity-count))
                 (if (< end-state-cost best-state-cost)
                   (values end-state end-state-cost end-state-path)
                   (values best-state best-state-cost best-state-path))))))
@@ -383,13 +383,13 @@
         (create-shedule sim end-state-path)))))
 
 (defun sort-schedule(schedule)
-    (sort
-      (copy-seq schedule)
-      (lambda (a1 a2)
-        (if (< (second a1) (second a2))
-          T
-          (if (= (second a1) (second a2))
-            (< (third a1) (third a2)))))))
+  (sort
+    (copy-seq schedule)
+    (lambda (a1 a2)
+      (if (< (second a1) (second a2))
+        T
+        (if (= (second a1) (second a2))
+          (< (third a1) (third a2)))))))
 
 (defun pprint-schedule (schedule &aux (schedule (sort-schedule schedule)))
   (loop
@@ -404,29 +404,29 @@
 
 (opts:define-opts
   (:name :help
-         :description "print the help text and exit"
-         :short #\h
-         :long "help")
+   :description "print the help text and exit"
+   :short #\h
+   :long "help")
   (:name :version
-         :description "print the version and exit"
-         :short #\v
-         :long "version")
+   :description "print the version and exit"
+   :short #\v
+   :long "version")
   (:name :today
-         :description "use DATE (YYYY-MM-DD) as first day of the simulation (defaults to today)"
-         :long "today"
-         :arg-parser #'parse-date
-         :meta-var "DATE")
+   :description "use DATE (YYYY-MM-DD) as first day of the simulation (defaults to today)"
+   :long "today"
+   :arg-parser #'parse-date
+   :meta-var "DATE")
   (:name :productivity
-         :description "percentage of day spent by people working on activities (defaults to 100)"
-         :long "productivity"
-         :arg-parser #'parse-percentage
-         :meta-var "PROD")
+   :description "percentage of day spent by people working on activities (defaults to 100)"
+   :long "productivity"
+   :arg-parser #'parse-percentage
+   :meta-var "PROD")
   (:name :disable-skip-weekends
-         :description "Don't skip weekends when calculating actual days of efforts."
-         :long "disable-skip-weekends")
+   :description "Don't skip weekends when calculating actual days of efforts."
+   :long "disable-skip-weekends")
   (:name :good-enough
-         :description "Trade execution time, for a potentially sub-optimal solution."
-         :long "good-enough"))
+   :description "Trade execution time, for a potentially sub-optimal solution."
+   :long "good-enough"))
 
 (define-condition exit (error)
   ((code
