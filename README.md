@@ -97,7 +97,6 @@ specify:
 # TODO
 
 - Find a good heuristic
-- Fix tests on Windows
 - when people start off with multiple activities assigned, `ap` combines them
   together -- which means other activities depending on any of them, might end
   up being claimed later because the completion date was pushed too far ahead

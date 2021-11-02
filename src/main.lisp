@@ -159,7 +159,7 @@
         claims
         ooo-entries)
     (loop
-      :for line :in (split-sequence:split-sequence #\Newline string)
+      :for line :in (mapcar #'trim (split-sequence:split-sequence #\Newline string))
       :until (zerop (length line))
       :when (string= (subseq line 0 8) "activity") :do (push (parse-activity line) activities)
       :when (string= (subseq line 0 6) "person") :do (push (parse-person line) people)
@@ -215,6 +215,12 @@
                        :calendars calendars
                        :already-working-on already-working-on
                        :already-been-busy-for already-been-busy-for))))
+
+(defun trim (string)
+  (string-trim
+    '(#\Space #\Newline #\Backspace #\Tab
+      #\Linefeed #\Page #\Return #\Rubout)
+    string))
 
 ; Search ------------------------------------------------------------------------------------------
 
