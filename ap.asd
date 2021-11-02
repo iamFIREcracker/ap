@@ -43,4 +43,4 @@
   ((:module "test"
     :serial t
     :components ((:file "main"))))
-  :perform (test-op (o c) (uiop:symbol-call :1am '#:run)))
+  :perform (test-op (o c) (uiop:symbol-call :ap/tests '#:run)))
