@@ -51,25 +51,26 @@ jobs:
           echo "::set-output name=asdf-version::$asdf_version"
           echo "::set-output name=qlot-version::$qlot_version"
 
-  tests:
+  build:
     needs: ci-config
     if: needs.ci-config.outputs.enabled == 'yes'
     strategy:
       fail-fast: false # Let the workflow continue as much as possible
       matrix:
-        lisp: [ abcl, allegro, ccl, cmucl, ecl ]
-        experimental: [ true ]
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
+        lisp: [ sbcl-bin/2.1.10 ]
         include:
-          - lisp: sbcl-bin/2.1.10
-            experimental: false
-    env:
-      LISP: ${{ matrix.lisp }}
+          - os: windows-latest
+            destination: ap.exe
+          - os: ubuntu-latest
+            destination: ap-linux
+          - os: macos-latest
+            destination: ap-osx
     defaults:
       run:
         shell: lispsh {0}
-    name: tests [lisp=${{ matrix.lisp }}]
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    name: build [lisp=${{ matrix.lisp }}, os=${{ matrix.os }}]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: 40ants/setup-lisp@v2
         with:
@@ -77,6 +78,43 @@ jobs:
           asdf-version: ${{ needs.ci-config.outputs.asdf-version }}
           qlot-version: ${{ needs.ci-config.outputs.qlot-version }}
       - uses: actions/checkout@v2
+        with:
+          # By default, this action would fetch a single commit only;
+          # however, we are counting the number of commits since the "last tag"
+          # inside build.lisp, and in order for that to work we have to figure
+          # out a way to fetch all the ancestors of the current commit until we
+          # land on the target tag...or we fetch all the history.
+          #
+          # Fetching the complete history will do just fine.
+          fetch-depth: 0
       - run: make lisp-info-ros
       - run: make test-ros
-        continue-on-error: ${{ matrix.experimental }}
+      - run: make binary-ros
+      - run: mv bin/ap bin/${{ matrix.destination }}
+      - name: Upload the binary
+        uses: actions/upload-artifact@v2
+        with:
+          name: binaries
+          path: bin/${{ matrix.destination }}
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/download-artifact@v2
+        with:
+          name: binaries
+          path: bin/
+      - name: Extract release notes
+        id: extract-release-notes
+        uses: ffurrer2/extract-release-notes@v1
+      - name: Create release
+        uses: softprops/action-gh-release@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          draft: false
+          prerelease: false
+          body: ${{ steps.extract-release-notes.outputs.release_notes }}
+          files: bin/*
