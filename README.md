@@ -30,7 +30,7 @@ THIS IS A WORK IN PROGRESS... USE AT YOUR OWN RISK!
     claim user-05 act-05
     claim user-06 act-06
 
-    > bin/ap --today 2020-03-30 < test/known-scenario-1.txt
+    > cat test/known-scenario-1.txt | ap --today 2020-03-30
     act-04 2020-03-30 2020-04-02 user-04
     act-09 2020-03-30 2020-04-02 user-07
     act-05 2020-03-30 2020-04-06 user-05
@@ -44,6 +44,9 @@ THIS IS A WORK IN PROGRESS... USE AT YOUR OWN RISK!
     act-10 2020-04-07 2020-04-15 user-01
     act-07 2020-04-09 2020-04-16 user-03
     act-12 2020-04-13 2020-04-21 user-07
+
+    > cat test/known-scenario-1.txt | ap --today 2020-03-30 | ap-gantt
+    # This should pop Gnuplot open!
 
 ## Input
 
