@@ -180,7 +180,7 @@
         :for ooo :in ooo-entries
         :for person-id = (ooo-person ooo)
         :for i = (gethash person-id person-id-map)
-        :unless i :do (error "Cannot find a person with name: ~a, when parsing ~a" person-id ooo)
+        :unless i :do (error "Cannot find out-of-office person [ooo=~a]" ooo)
         :do (let ((person-calendar (aref calendars i)))
               (setf (gethash (ooo-date ooo) person-calendar) T)))
       (loop
@@ -193,8 +193,8 @@
         :for i = (gethash person-id person-id-map)
         :for activity-id = (claim-activity claim)
         :for j = (gethash activity-id activity-id-map)
-        :unless i :do (error "Cannot find a person with name: ~a, when parsing ~a" person-id claim)
-        :unless j :do (error "Cannot find an activity with name: ~a, when parsing ~a" activity-id claim)
+        :unless i :do (error "Cannot find claim person [claim=~a]" claim)
+        :unless j :do (error "Cannot find claim activity [claim=~a]" claim)
         :do (setf (aref already-working-on i) (set-bit j (aref already-working-on i))
                   (aref already-been-busy-for i) (offset-add-business-days
                                                    (aref already-been-busy-for i)
@@ -206,7 +206,7 @@
         :do (loop
               :for dep-id :in (activity-depends-on activity)
               :for j = (gethash dep-id activity-id-map)
-              :unless j :do (error "Cannot find ~a's dependency: ~a" (activity-id activity) dep-id)
+              :unless j :do (error "Cannot find activity dependency [activity=~a,dep-id=~a]" activity dep-id)
               :do (setf (aref dependencies i)
                         (set-bit j (aref dependencies i)))))
       (make-simulation :activities (coerce activities 'vector)
