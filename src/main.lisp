@@ -134,9 +134,17 @@
 
 (defstruct ooo person date)
 
-(defun parse-ooo (s &aux (parts (split-sequence:split-sequence #\Space s)))
-  (make-ooo :person (second parts)
-            :date (parse-date (third parts))))
+(defun parse-ooo (s)
+  (flet ((mklist (x) (if (listp x) x (list x)))
+         (mkooo (person) (lambda (date-str) (make-ooo :person person
+                                                      :date (parse-date date-str)))))
+    (destructuring-bind (ignored person . dates)
+        (split-sequence:split-sequence #\Space s)
+      (declare (ignore ignored))
+      (mapcar (mkooo person) (mklist dates)))))
+
+#+#:excluded (parse-ooo "out-of-office matteo 2022-06-12")
+#+#:excluded (parse-ooo "out-of-office matteo 2022-06-12 2022-06-13")
 
 (defstruct simulation
   activities
@@ -165,7 +173,8 @@
       :when (string= (subseq line 0 6) "person") :do (push (parse-person line) people)
       :when (and (not *ignore-claims*)
                  (string= (subseq line 0 5) "claim")) :do (push (parse-claim line) claims)
-      :when (string= (subseq line 0 13) "out-of-office") :do (push (parse-ooo line) ooo-entries))
+      :when (string= (subseq line 0 13) "out-of-office") :do (dolist (ooo (parse-ooo line))
+                                                               (push ooo ooo-entries)))
     (setf activities (reverse activities)
           people (reverse people))
     (let ((calendars (map-into (make-array (length people)) #'make-hash-table))
