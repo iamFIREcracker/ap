@@ -1,0 +1,6 @@
+{
+  "*": {
+    "start": "-title=REPL sbcl-vlime",
+    "plan_dir": "etc/plan/"
+  }
+}
