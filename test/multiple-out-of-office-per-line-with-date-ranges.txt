@@ -1,0 +1,5 @@
+activity act-01 5
+activity act-02 5
+person user-01 100
+person user-02 100
+out-of-office user-01 2020-05-01..2020-05-05

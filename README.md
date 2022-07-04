@@ -87,6 +87,7 @@ Claim entries are prefixed with the 'claim' keyword, and they specify:
 
     out-of-office user-01 2020-04-25
     out-of-office user-02 2020-04-25 2020-12-25
+    out-of-office user-03 2020-04-25 2020-12-25..2020-12-31
 
 Out of office entries are prefixed with the 'out-of-office' keyword, and they
 specify:
@@ -103,5 +104,4 @@ specify:
   (i.e. when the two activities got completed)
 - Shared, and mutual resources
 - Docker support?!
-- date ranges: 2022-06-29..2022-07-01
 - affinity: user-a will be more or less productive when working on activity-b

@@ -83,6 +83,16 @@
                                 :disable-find-optimal-solution t))))
 
 
+(deftest ap/multiple-out-of-office-per-line-with-date-ranges/completion-day
+  (1am:is (= 10 (completion-day (uiop:read-file-string #P"test/multiple-out-of-office-per-line-with-date-ranges.txt")
+                                :today "2020-04-28"))))
+
+(deftest ap/multiple-out-of-office-per-line-with-date-ranges/completion-day/disable-find-optimal-solution
+  (1am:is (= 10 (completion-day (uiop:read-file-string #P"test/multiple-out-of-office-per-line-with-date-ranges.txt")
+                                :today "2020-04-28"
+                                :disable-find-optimal-solution t))))
+
+
 (deftest ap/known-scenario-1/completion-day
   (1am:is (= 22.25 (completion-day (uiop:read-file-string #P"test/known-scenario-1.txt")
                                    :today "2020-03-30"))))

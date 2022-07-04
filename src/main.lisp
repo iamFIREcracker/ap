@@ -32,6 +32,27 @@
         (mapcar #'parse-integer (split-sequence:split-sequence #\- str))
       (encode-universal-time second minute hour day month year timezone))))
 
+(defconstant +seconds-in-a-day+ 86400)
+
+(defun parse-daterange (str)
+  "Parses YYYY-MM-DD..YYYY-MM-DD, and returns a list of all the dates
+  contained in the range."
+  (when (search ".." str)
+    (destructuring-bind (from-str to-str)
+        (split-sequence:split-sequence #\. str
+                                       :remove-empty-subseqs t)
+      (let ((from (parse-date from-str))
+            (to (parse-date to-str)))
+        (if (< to from)
+          (error "Right side of date range (~A) should be greater than the left side (~A)" to-str from-str)
+          (loop :for curr = from :then (+ curr +seconds-in-a-day+)
+                :while (<= curr to)
+                :collect curr
+                ))))))
+
+#+#:excluded (parse-daterange "2022-05-12..2022-05-14")
+
+
 (defun offset-to-universal-time (offset)
   "Adds OFFSET days to *TODAY*, and return its universal time representation.
 
@@ -135,16 +156,25 @@
 (defstruct ooo person date)
 
 (defun parse-ooo (s)
-  (flet ((mklist (x) (if (listp x) x (list x)))
-         (mkooo (person) (lambda (date-str) (make-ooo :person person
-                                                      :date (parse-date date-str)))))
-    (destructuring-bind (ignored person . dates)
+  (labels ((mklist (x) (if (listp x) x (list x)))
+           (ooo-ctor (person)
+             (lambda (date-str)
+               (uiop:if-let (range (parse-daterange date-str))
+                 (loop for date in range
+                       collect (make-ooo :person person :date date))
+                 (mklist (make-ooo :person person
+                                   :date (parse-date date-str)))))))
+    (destructuring-bind (ooo-label person . dates)
         (split-sequence:split-sequence #\Space s)
-      (declare (ignore ignored))
-      (mapcar (mkooo person) (mklist dates)))))
+      (declare (ignore ooo-label))
+      (mapcan (ooo-ctor person) dates))))
+
 
 #+#:excluded (parse-ooo "out-of-office matteo 2022-06-12")
 #+#:excluded (parse-ooo "out-of-office matteo 2022-06-12 2022-06-13")
+#+#:excluded (parse-ooo "out-of-office matteo 2022-07-04..2022-07-14")
+#+#:excluded (parse-ooo "out-of-office matteo 2022-07-04..2022-07-03")
+
 
 (defstruct simulation
   activities
