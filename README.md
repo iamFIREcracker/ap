@@ -93,7 +93,20 @@ Out of office entries are prefixed with the 'out-of-office' keyword, and they
 specify:
 
 - the person this OOO entry refers to
-- the date (YYYY-MM-DD) the person won't be up for working
+- the date(s) (YYYY-MM-DD) the person won't be up for working
+  - Single date entries: `YYYY-MM-DD`, e.g. `2022-07-04`
+  - Date ranges: `YYYY-MM-DD..YYYY-MM-DD`, e.g. `2022-07-04..2022-07-06`
+
+### Affinity
+
+    affinity user-01 100 act-01
+    affinity user-02 50 act-01 act-03
+
+Affinity entries are prefixed with the 'affinity' keyword, and they specify:
+
+- the person we are defining a affinity record for
+- how productive they are i.e. a real number in the range `[0, 1]`
+- the activity or list of activities this productivity coefficient applies to
 
 # TODO
 
@@ -104,4 +117,3 @@ specify:
   (i.e. when the two activities got completed)
 - Shared, and mutual resources
 - Docker support?!
-- affinity: user-a will be more or less productive when working on activity-b

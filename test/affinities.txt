@@ -1,0 +1,5 @@
+activity act-01 6
+activity act-02 3
+person user-01 100
+person user-02 100
+affinity user-01 100 act-01

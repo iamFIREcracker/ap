@@ -15,6 +15,29 @@
        (1am:test ,name ,@body))
      (pushnew ',name *tests*)))
 
+
+(deftest ap/days-to-complete/no-affinities-uses-default
+  (1am:is (= (let ((ap::*person-productivity* 0.5)
+                   (person (ap::make-person :id "person" :allocation 1.0))
+                   (activity (ap::make-activity :id "activity"
+                                                :effort 10)))
+               (ap::days-to-complete nil person activity))
+             20)))
+#+#:excluded (ap/days-to-complete/no-affinities-uses-default)
+
+(deftest ap/days-to-complete/matching-affinity
+  (1am:is (= (let ((ap::*person-productivity* 0.5)
+                   (person (ap::make-person :id "person" :allocation 1.0))
+                   (activity (ap::make-activity :id "activity"
+                                                :effort 10))
+                   (affinity (ap::make-affinity :person "person"
+                                                :productivity 1.0
+                                                :activity "activity")))
+               (ap::days-to-complete (list affinity) person activity))
+             10)))
+#+#:excluded (ap/days-to-complete/matching-affinity)
+
+
 (deftest ap/simple/completion-day
   (1am:is (= 15 (completion-day (uiop:read-file-string #P"test/simple.txt")
                                 :disable-skip-weekends t))))
@@ -29,6 +52,26 @@
                                 :disable-skip-weekends t
                                 :ignore-claims t
                                 :disable-find-optimal-solution t))))
+
+(deftest ap/simple/completion-day/ignore-claims/disable-find-optimal-solution/half-productivity
+  (1am:is (= 20 (completion-day (uiop:read-file-string #P"test/simple.txt")
+                                :disable-skip-weekends t
+                                :ignore-claims t
+                                :disable-find-optimal-solution t
+                                :person-productivity "50"))))
+
+(deftest ap/affinities/completion-day
+  (1am:is (= 6 (completion-day (uiop:read-file-string #P"test/affinities.txt")
+                               :disable-skip-weekends t
+                               :person-productivity "50"))))
+
+(deftest ap/affinities/completion-day/ignore-affinity
+  (1am:is (= 12 (completion-day (uiop:read-file-string #P"test/affinities.txt")
+                                :ignore-affinities t
+                                :disable-skip-weekends t
+                                :person-productivity "50"))))
+
+#+#:excluded (ap/affinities/completion-day)
 
 
 (deftest ap/dependencies/completion-day

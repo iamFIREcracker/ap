@@ -2,6 +2,7 @@
 
 (defvar *version* nil "Application version")
 (defvar *ignore-claims* nil "Ignore any person-activity claim")
+(defvar *ignore-affinities* nil "Ignore any person-activity affinity")
 (defvar *person-productivity* 1 "Person productivity")
 (defvar *today* nil "First day of the simulation")
 (defvar *skip-weekends* t "Skip weekends when calculating days of effort")
@@ -169,25 +170,48 @@
       (declare (ignore ooo-label))
       (mapcan (ooo-ctor person) dates))))
 
-
 #+#:excluded (parse-ooo "out-of-office matteo 2022-06-12")
 #+#:excluded (parse-ooo "out-of-office matteo 2022-06-12 2022-06-13")
 #+#:excluded (parse-ooo "out-of-office matteo 2022-07-04..2022-07-14")
 #+#:excluded (parse-ooo "out-of-office matteo 2022-07-04..2022-07-03")
 
 
+(defstruct affinity person productivity activity)
+
+(defun parse-affinity (s)
+  (flet ((affinity-ctor (person productivity)
+           (lambda (activity)
+             (make-affinity :person person
+                            :productivity productivity
+                            :activity activity))))
+    (destructuring-bind (affinity-label person productivity . activities)
+        (split-sequence:split-sequence #\Space s)
+      (declare (ignore affinity-label))
+      (mapcar (affinity-ctor person (parse-percentage productivity)) activities))))
+
+#+#:excluded (parse-affinity "affinity matteo 40 foo")
+#+#:excluded (parse-affinity "affinity matteo 50 foo bar")
+
+
 (defstruct simulation
   activities
   dependencies
   people
+  affinities
   calendars
   already-working-on
   already-been-busy-for)
 
-(defun days-to-complete (person activity)
-  (with-slots (allocation) person
-    (with-slots (effort) activity
-      (/ effort allocation *person-productivity*))))
+(defun days-to-complete (affinities person activity)
+  (with-slots ((pid id) allocation) person
+    (with-slots ((aid id) effort) activity
+      (flet ((find-productivity ()
+               (dolist (e affinities)
+                 (with-slots ((eperson person) (eproductivity productivity) (eactivity activity)) e
+                   (when (and (string= pid eperson)
+                              (string= aid eactivity))
+                     (return-from find-productivity eproductivity))))))
+        (/ effort allocation (or (find-productivity )*person-productivity*))))))
 
 (defun parse-simulation (string)
   (let ((person-id-map (make-hash-table :test 'equal))
@@ -195,7 +219,8 @@
         activities
         people
         claims
-        ooo-entries)
+        ooo-entries
+        affinities)
     (loop
       :for line :in (mapcar #'trim (split-sequence:split-sequence #\Newline string))
       :until (zerop (length line))
@@ -204,7 +229,10 @@
       :when (and (not *ignore-claims*)
                  (string= (subseq line 0 5) "claim")) :do (push (parse-claim line) claims)
       :when (string= (subseq line 0 13) "out-of-office") :do (dolist (ooo (parse-ooo line))
-                                                               (push ooo ooo-entries)))
+                                                               (push ooo ooo-entries))
+      :when (and (not *ignore-affinities*)
+                 (string= (subseq line 0 8) "affinity")) :do (dolist (aff (parse-affinity line))
+                                                               (push aff affinities)))
     (setf activities (reverse activities)
           people (reverse people))
     (let ((calendars (map-into (make-array (length people)) #'make-hash-table))
@@ -238,7 +266,9 @@
                   (aref already-been-busy-for i) (offset-add-business-days
                                                    (aref already-been-busy-for i)
                                                    (aref calendars i)
-                                                   (days-to-complete (nth i people) (nth j activities)))))
+                                                   (days-to-complete affinities
+                                                                     (nth i people)
+                                                                     (nth j activities)))))
       (loop
         :for i :below (length activities)
         :for activity :in activities
@@ -251,6 +281,7 @@
       (make-simulation :activities (coerce activities 'vector)
                        :dependencies dependencies
                        :people (coerce people 'vector)
+                       :affinities affinities
                        :calendars calendars
                        :already-working-on already-working-on
                        :already-been-busy-for already-been-busy-for))))
@@ -266,7 +297,7 @@
 (defstruct (cost-info (:conc-name nil)) days dependencies)
 
 (defun precompute-costs (sim)
-  (with-slots (activities dependencies people) sim
+  (with-slots (activities dependencies people affinities) sim
     (let* ((n (length people))
            (m (length activities))
            (costs (make-array (list n m))))
@@ -276,7 +307,7 @@
         :do (loop
               :for j :below m
               :for activity :across activities
-              :for days = (days-to-complete person activity)
+              :for days = (days-to-complete affinities person activity)
               :do (setf (aref costs i j) (make-cost-info :days days
                                                          :dependencies (aref dependencies j)))))
       costs)))
@@ -523,12 +554,20 @@
 
 ; API ---------------------------------------------------------------------------------------------
 
-(defun completion-day (sim-string &key today ignore-claims
+(defun completion-day (sim-string &key
+                                  today
+                                  person-productivity
+                                  ignore-claims
+                                  ignore-affinities
                                   disable-skip-weekends
                                   disable-find-optimal-solution)
-  (let ((*ignore-claims* ignore-claims)
+  (let ((*person-productivity* (if person-productivity
+                                 (parse-percentage person-productivity)
+                                 1.0))
+        (*ignore-claims* ignore-claims)
+        (*ignore-affinities* ignore-affinities)
         (*skip-weekends* (not disable-skip-weekends))
-        (*today* (or (and today (parse-date today)) (get-universal-time)))
+        (*today* (if today (parse-date today) (get-universal-time)))
         (*find-optimal-solution* (not disable-find-optimal-solution)))
     (multiple-value-bind (end-state)
         (schedule-activities sim-string)
