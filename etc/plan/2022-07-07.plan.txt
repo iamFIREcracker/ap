@@ -1,0 +1,1 @@
+* Add affinity entries to support persons being more productive with certain activities than others
