@@ -157,14 +157,13 @@
 (defstruct ooo person date)
 
 (defun parse-ooo (s)
-  (labels ((mklist (x) (if (listp x) x (list x)))
-           (ooo-ctor (person)
+  (labels ((ooo-ctor (person)
              (lambda (date-str)
                (uiop:if-let (range (parse-daterange date-str))
                  (loop for date in range
                        collect (make-ooo :person person :date date))
-                 (mklist (make-ooo :person person
-                                   :date (parse-date date-str)))))))
+                 (list (make-ooo :person person
+                                 :date (parse-date date-str)))))))
     (destructuring-bind (ooo-label person . dates)
         (split-sequence:split-sequence #\Space s)
       (declare (ignore ooo-label))
